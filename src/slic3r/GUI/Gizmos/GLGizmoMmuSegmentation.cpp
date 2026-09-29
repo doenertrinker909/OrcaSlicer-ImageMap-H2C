@@ -16589,7 +16589,7 @@ void GLGizmoMmuSegmentation::open_obj_vertex_color_mapping_dialog()
     in_out.filament_ids = filament_ids;
     in_out.first_extruder_id = first_extruder_id;
     in_out.deal_vertex_color = true;
-    ObjColorDialog color_dlg(nullptr, in_out, extruder_colours);
+    ObjColorDialog color_dlg(nullptr, in_out, extruder_colours, Sidebar::should_show_SEMM_buttons());
     if (color_dlg.ShowModal() != wxID_OK)
         return;
     filament_ids = in_out.filament_ids;
@@ -22477,7 +22477,7 @@ void GLGizmoMmuSegmentation::render_filament_remap_ui(float window_width, float 
                     ImGui::CloseCurrentPopup();
                 }
             }
-            ImGui::Dummy(ImVec2(0.0f, 2.f * scale));
+            ImGui::Dummy(ImVec2(0.0f, m_imgui->scaled(2.f)));
             ImGui::EndPopup();
         }
         

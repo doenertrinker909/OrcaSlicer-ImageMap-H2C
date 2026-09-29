@@ -57,7 +57,6 @@ void GLGizmoTextureGradientPointPicker::cancel_hover_preview()
 
 bool GLGizmoTextureGradientPointPicker::on_init()
 {
-    m_shortcut_key = 0;
     return true;
 }
 

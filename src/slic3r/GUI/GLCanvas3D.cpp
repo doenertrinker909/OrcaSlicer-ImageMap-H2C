@@ -2469,15 +2469,6 @@ void GLCanvas3D::remove_curr_plate_all()
     m_dirty = true;
 }
 
-void GLCanvas3D::update_plate_thumbnails()
-{
-    if (!_set_current())
-        return;
-
-    m_sel_plate_toolbar.is_render_finish = false;
-    _update_imgui_select_plate_toolbar();
-}
-
 void GLCanvas3D::select_all()
 {
     if (!m_gizmos.is_allow_select_all()) {
@@ -3507,10 +3498,6 @@ void GLCanvas3D::on_idle(wxIdleEvent& evt)
     m_overlay_dirty = false;
     _refresh_if_shown_on_screen(scene_dirty);
 
-#if ENABLE_ENHANCED_IMGUI_SLIDER_FLOAT
-    if (m_extra_frame_requested || mouse3d_controller_applied || imgui_requires_extra_frame ||
-        wxGetApp().imgui()->requires_extra_frame() || texture_preview_generation_pending) {
-#else
     if (m_extra_frame_requested || mouse3d_controller_applied || texture_preview_generation_pending) {
         m_dirty = true;
         m_extra_frame_requested = false;
@@ -5023,11 +5010,6 @@ void GLCanvas3D::force_set_focus() {
 void GLCanvas3D::on_set_focus(wxFocusEvent& evt)
 {
     m_tooltip_enabled = false;
-    if (m_canvas_type == ECanvasType::CanvasPreview) {
-        // update thumbnails and update plate toolbar
-        wxGetApp().plater()->update_all_plate_thumbnails();
-        update_plate_thumbnails();
-    }
     _refresh_if_shown_on_screen();
     m_tooltip_enabled = true;
     m_is_touchpad_navigation = wxGetApp().app_config->get_bool("camera_navigation_style");

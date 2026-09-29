@@ -1494,18 +1494,19 @@ void GLVolume::simple_render(GLShaderProgram* shader,
                             ColorRGBA new_color = adjust_color_for_rendering(extruder_colors[idx - 1]);
                             if (brighten_selected)
                                 new_color = brighten_color(new_color, 1.25f);
-                        if (ban_light) {
-                            new_color[3] = (255 - std::max(0, extruder_id - 1))/255.0f;
+                            if (ban_light) {
+                                new_color[3] = (255 - (idx - 1))/255.0f;
+                            }
+                            m.set_color(new_color);
                         }
-                        m.set_color(new_color);
-                    }
-                    else {
+                        else {
                             //to make black not too hard too see
                             ColorRGBA new_color = adjust_color_for_rendering(extruder_colors[0]);
                             if (brighten_selected)
                                 new_color = brighten_color(new_color, 1.25f);
                             if (ban_light) {
                                 new_color[3] = (255 - 0) / 255.0f;
+                            }
                             m.set_color(new_color);
                         }
                     }

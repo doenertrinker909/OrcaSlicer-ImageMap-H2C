@@ -1,5 +1,6 @@
 #include "GLGizmoMeshBoolean.hpp"
 #include "slic3r/GUI/GLCanvas3D.hpp"
+#include "slic3r/GUI/Shortcuts.hpp"
 #include "slic3r/GUI/ImGuiWrapper.hpp"
 #include "slic3r/GUI/GUI.hpp"
 #include "slic3r/GUI/GUI_Utils.hpp"
@@ -212,7 +213,7 @@ bool GLGizmoMeshBoolean::on_mouse(const wxMouseEvent &mouse_event)
 
 bool GLGizmoMeshBoolean::on_init()
 {
-    m_shortcut_key = WXK_CONTROL_B;
+    m_shortcut = Shortcut::GizmoMeshBoolean;
     return true;
 }
 
@@ -296,6 +297,19 @@ CommonGizmosDataID GLGizmoMeshBoolean::on_get_requirements() const
         | int(CommonGizmosDataID::ObjectClipper));
 }
 
+std::optional<TriangleSelector::SavedPainting> VolumeInfo::save_painting() const
+{
+    if (wxGetApp().app_config->get_bool("keep_painting")) {
+        std::optional<TriangleSelector::SavedPainting> saved_painting = mv->save_painting();
+        if (saved_painting) {
+            saved_painting->mesh.transform(trafo);
+        }
+        return saved_painting;
+    }
+
+    return {};
+}
+
 void GLGizmoMeshBoolean::on_render_input_window(float x, float y, float bottom_limit)
 {
     y = std::min(y, bottom_limit - ImGui::GetWindowHeight());
@@ -318,7 +332,7 @@ void GLGizmoMeshBoolean::on_render_input_window(float x, float y, float bottom_l
 
     const int select_btn_length = 2 * ImGui::GetStyle().FramePadding.x + std::max(ImGui::CalcTextSize(("1 " + _u8L("selected")).c_str()).x, ImGui::CalcTextSize(_u8L("Select").c_str()).x);
 
-    auto selectable = [this](const std::string& label, bool selected, const ImVec2& size_arg) {
+    auto selectable = [](const std::string& label, bool selected, const ImVec2& size_arg) {
         ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, { 0,0 });
 
         ImGuiWindow* window = ImGui::GetCurrentWindow();
@@ -510,11 +524,17 @@ void GLGizmoMeshBoolean::run_boolean_operation(const std::string &boolean_opts, 
         tool_source.fallback_color = source_base_color;
     sources.emplace_back(std::move(tool_source));
 
+    // Preserve standard (triangle-selector) painting across the boolean (upstream keep_painting behavior):
+    // union/intersection keep both inputs' paint, difference keeps the source's.
+    std::vector<std::optional<TriangleSelector::SavedPainting>> saved_paintings =
+        boolean_opts == "A_NOT_B" ? std::vector<std::optional<TriangleSelector::SavedPainting>>{m_src.save_painting()}
+                                  : std::vector<std::optional<TriangleSelector::SavedPainting>>{m_src.save_painting(), m_tool.save_painting()};
+
     if (had_transfer_data) {
         std::vector<MeshBoolean::mcut::ProvenancedMesh> provenanced_results;
         const bool provenance_ok = MeshBoolean::mcut::make_boolean_with_provenance(temp_src_mesh, 0, temp_tool_mesh, 1, provenanced_results, boolean_opts);
         if (provenance_ok && !provenanced_results.empty()) {
-            generate_new_volume(delete_input, provenanced_results.front().mesh, &sources, &provenanced_results.front().provenance);
+            generate_new_volume(delete_input, provenanced_results.front().mesh, &saved_paintings, &sources, &provenanced_results.front().provenance);
             wxGetApp().notification_manager()->close_plater_warning_notification(warning_text);
             return;
         }
@@ -525,7 +545,7 @@ void GLGizmoMeshBoolean::run_boolean_operation(const std::string &boolean_opts, 
     if (temp_mesh_resuls.size() != 0) {
         if (had_transfer_data)
             show_mesh_boolean_color_transfer_warning_dialog();
-        generate_new_volume(delete_input, *temp_mesh_resuls.begin());
+        generate_new_volume(delete_input, *temp_mesh_resuls.begin(), &saved_paintings);
         wxGetApp().notification_manager()->close_plater_warning_notification(warning_text);
     }
     else {
@@ -533,10 +553,10 @@ void GLGizmoMeshBoolean::run_boolean_operation(const std::string &boolean_opts, 
     }
 }
 
-void GLGizmoMeshBoolean::generate_new_volume(bool delete_input,
-                                             const TriangleMesh& mesh_result,
-                                             const std::vector<MultiSourceTextureDataSource>* sources,
-                                             const std::vector<MeshBoolean::mcut::MeshFaceProvenance>* provenance) {
+void GLGizmoMeshBoolean::generate_new_volume(const bool delete_input, TriangleMesh& mesh_result,
+                                             const std::vector<std::optional<TriangleSelector::SavedPainting>>* saved_paintings /*= nullptr*/,
+                                             const std::vector<MultiSourceTextureDataSource>* sources /*= nullptr*/,
+                                             const std::vector<MeshBoolean::mcut::MeshFaceProvenance>* provenance /*= nullptr*/) {
 
     wxGetApp().plater()->take_snapshot("Mesh Boolean");
 
@@ -544,6 +564,13 @@ void GLGizmoMeshBoolean::generate_new_volume(bool delete_input,
 
     // generate new volume
     ModelVolume* new_volume = curr_model_object->add_volume(std::move(mesh_result));
+
+    // Remap paintings
+    if (saved_paintings != nullptr) {
+        for (const auto& saved_painting : *saved_paintings) {
+            new_volume->restore_painting(saved_painting, true);
+        }
+    }
 
     // assign to new_volume from old_volume
     ModelVolume* old_volume = m_src.mv;

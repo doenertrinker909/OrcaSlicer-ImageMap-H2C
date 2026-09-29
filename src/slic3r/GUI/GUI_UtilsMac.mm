@@ -26,6 +26,22 @@ void staticbox_remove_margin(wxStaticBox* sb) {
     [nativeBox setBorderWidth:0];
 }
 
+// wxOSX SetShape only clears the window background; it cannot clip to a region. Clipping the
+// window's view layer to a rounded rect is what actually rounds the opaque webview inside.
+void set_window_corner_radius(wxWindow* win, int radius) {
+    if (!win)
+        return;
+    NSView* view = (NSView*)win->GetHandle();
+    if (!view)
+        return;
+    NSWindow* window = [view window];
+    [window setOpaque:NO];
+    [window setBackgroundColor:[NSColor clearColor]];
+    [view setWantsLayer:YES];
+    [[view layer] setCornerRadius:radius];
+    [[view layer] setMasksToBounds:YES];
+}
+
 bool is_debugger_present()
 // Returns true if the current process is being debugged (either
 // running under the debugger or has a debugger attached post facto).

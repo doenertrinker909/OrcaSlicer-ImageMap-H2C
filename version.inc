@@ -14,16 +14,14 @@ set(SLIC3R_LINUX_APP_CMD "orca-slicer-imagemap")
 if(NOT DEFINED BBL_INTERNAL_TESTING)
 set(BBL_INTERNAL_TESTING "0")
 endif()
-set(SOFTFEVER_VERSION_FILE "${CMAKE_CURRENT_LIST_DIR}/version_number.txt")
-file(STRINGS "${SOFTFEVER_VERSION_FILE}" SoftFever_VERSION LIMIT_COUNT 1)
-string(STRIP "${SoftFever_VERSION}" SoftFever_VERSION)
+set(SoftFever_VERSION "2.5.0-dev")
 string(REGEX MATCH "^([0-9]+)\\.([0-9]+)\\.([0-9]+)"
        SoftFever_VERSION_MATCH ${SoftFever_VERSION})
 set(ORCA_VERSION_MAJOR ${CMAKE_MATCH_1})
 set(ORCA_VERSION_MINOR ${CMAKE_MATCH_2})
 set(ORCA_VERSION_PATCH ${CMAKE_MATCH_3})
 
-set(SLIC3R_VERSION "02.05.01.52")
+set(SLIC3R_VERSION "02.08.01.55")
 
 if (NOT DEFINED ORCA_UPDATER_SIG_KEY)
     set(ORCA_UPDATER_SIG_KEY "" CACHE STRING "Base64url encoded updater signature key")

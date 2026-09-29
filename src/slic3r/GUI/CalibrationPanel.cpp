@@ -207,7 +207,7 @@ SelectMObjectPopup::SelectMObjectPopup(wxWindow* parent)
     m_scrolledWindow = new wxScrolledWindow(this, wxID_ANY, wxDefaultPosition, SELECT_MACHINE_LIST_SIZE, wxHSCROLL | wxVSCROLL);
     m_scrolledWindow->SetBackgroundColour(*wxWHITE);
     m_scrolledWindow->SetMinSize(SELECT_MACHINE_LIST_SIZE);
-    m_scrolledWindow->SetScrollRate(0, 5);
+    m_scrolledWindow->SetScrollRate(0, SELECT_MACHINE_ITEM_SIZE.y);
     auto m_sizxer_scrolledWindow = new wxBoxSizer(wxVERTICAL);
     m_scrolledWindow->SetSizer(m_sizxer_scrolledWindow);
     m_scrolledWindow->Layout();
@@ -244,13 +244,14 @@ void SelectMObjectPopup::Popup(wxWindow* WXUNUSED(focus))
         m_refresh_timer->Start(MACHINE_LIST_REFRESH_INTERVAL);
     }
 
-    if (wxGetApp().is_user_login()) {
+    const std::string provider = wxGetApp().get_printer_cloud_provider();
+    if (wxGetApp().is_user_login(provider)) {
         if (!get_print_info_thread) {
-            get_print_info_thread = new boost::thread(Slic3r::create_thread([this, token = std::weak_ptr<int>(m_token)] {
+            get_print_info_thread = new boost::thread(Slic3r::create_thread([this, token = std::weak_ptr<int>(m_token), provider] {
                 NetworkAgent* agent = wxGetApp().getAgent();
                 unsigned int http_code;
                 std::string body;
-                int result = agent->get_user_print_info(&http_code, &body);
+                int result = agent->get_user_print_info(&http_code, &body, provider);
 
                 wxGetApp().CallAfter([token, this, result, body]() {
                     if (token.expired()) {return;}
@@ -487,9 +488,11 @@ void CalibrationPanel::init_tabpanel() {
             selected = true;
         m_tabpanel->AddPage(m_cali_panels[i],
             get_calibration_type_name(m_cali_panels[i]->get_calibration_mode()),
-            "",
             selected);
     }
+
+    for (int i = 0; i < (int)CALI_MODE_COUNT; i++)
+        add_build_steps_of(*m_cali_panels[i]);
 
     // ORCA use standard paddings and keep arrow icon for consistent look between sidebars
     //for (int i = 0; i < (int)CALI_MODE_COUNT; i++)
@@ -497,8 +500,6 @@ void CalibrationPanel::init_tabpanel() {
 
     //auto padding_size = m_tabpanel->GetBtnsListCtrl()->GetPaddingSize(0);
     //m_tabpanel->GetBtnsListCtrl()->SetPaddingSize({ FromDIP(15), padding_size.y });
-
-    m_initialized = true;
 }
 
 void CalibrationPanel::init_timer()
@@ -534,6 +535,8 @@ void CalibrationPanel::update_print_error_info(int code, std::string msg, std::s
 }
 
 void CalibrationPanel::update_all() {
+    // Every wizard's pages exist once the last build step has run.
+    if (!built()) return;
 
     NetworkAgent* m_agent = wxGetApp().getAgent();
     Slic3r::DeviceManager* dev = Slic3r::GUI::wxGetApp().getDeviceManager();
@@ -585,7 +588,7 @@ void CalibrationPanel::update_all() {
         // only disconnected server in cloud mode
         if (obj->connection_type() != "lan") {
             if (m_agent) {
-                server_status = m_agent->is_server_connected() ? 0 : (int)MONITOR_DISCONNECTED_SERVER;
+                server_status = m_agent->is_server_connected(wxGetApp().get_printer_cloud_provider()) ? 0 : (int)MONITOR_DISCONNECTED_SERVER;
             }
         }
         show_status((int)MONITOR_DISCONNECTED + server_status);
@@ -597,7 +600,7 @@ void CalibrationPanel::update_all() {
 
 void CalibrationPanel::show_status(int status)
 {
-    if (!m_initialized) return;
+    if (!built()) return;
     if (last_status == status)return;
     last_status = status;
 

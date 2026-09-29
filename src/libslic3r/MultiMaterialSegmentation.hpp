@@ -12,6 +12,9 @@ namespace Slic3r {
 class ExPolygon;
 class ModelVolume;
 class PrintObject;
+class PrintConfig;
+class PrintObjectConfig;
+class PrintRegionConfig;
 class FacetsAnnotation;
 
 using ExPolygons = std::vector<ExPolygon>;
@@ -57,6 +60,8 @@ std::vector<std::vector<ExPolygons>> fuzzy_skin_segmentation_by_painting(const P
 
 std::vector<ExPolygons> segmentation_by_colored_contours(const std::vector<ColoredLines> &colorized_contours,
                                                          size_t                           num_facets_states);
+// Effective outer-wall line width for a region, resolved against its own nozzle with PrintRegion::flow's fallback.
+double resolve_outer_wall_line_width(const PrintRegionConfig &region_config, const PrintObjectConfig &object_config, const PrintConfig &print_config);
 
 } // namespace Slic3r
 

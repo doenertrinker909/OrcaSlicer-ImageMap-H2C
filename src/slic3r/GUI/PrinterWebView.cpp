@@ -1,16 +1,17 @@
 #include "PrinterWebView.hpp"
 
 #include "I18N.hpp"
+#include "PrinterWebViewHandler.hpp"
 #include "slic3r/GUI/PrinterWebView.hpp"
 #include "slic3r/GUI/wxExtensions.hpp"
 #include "slic3r/GUI/GUI_App.hpp"
 #include "slic3r/GUI/MainFrame.hpp"
 #include "libslic3r_version.h"
 
+#include <boost/filesystem/path.hpp>
 #include <wx/sizer.h>
 #include <wx/string.h>
 #include <wx/toolbar.h>
-#include <wx/textdlg.h>
 
 #include <slic3r/GUI/Widgets/WebView.hpp>
 #include <wx/webview.h>
@@ -19,32 +20,14 @@
 #include <webkit2/webkit2.h>
 #endif
 
-namespace pt = boost::property_tree;
-
 namespace Slic3r {
 namespace GUI {
 
 #ifdef __linux__
-// Workaround for crash in WebKitGTK when loading Fluidd < v1.37.0 or Mainsail < v2.16.1.
-// Their bundled vue-resize component detects container resizes by inserting
-//   <object aria-hidden="true" tabindex="-1" type="text/html" data="about:blank">
-// inside a <div class="resize-observer">. The very insertion of that <object> into the DOM
-// corrupts the heap in WebKitGTK's AcceleratedBackingStore and segfaults.
-//
-// This hook patches Node.prototype.appendChild/insertBefore and *only* swaps the child
-// when BOTH conditions hold:
-//   1. The parent has class "resize-observer" (vue-resize's wrapper div), AND
-//   2. The child is an <object> with vue-resize's exact attribute signature.
-// Any other appendChild/insertBefore call passes through untouched, so PDF/plugin/embed
-// <object> uses elsewhere on the page are not affected.
-//
-// The swap replaces the <object> with a hidden <div> shim that exposes a synthetic
-// contentDocument.defaultView (an EventTarget), and bridges a ResizeObserver on the
-// parent to fire 'resize' events on that fake view -- which is exactly what vue-resize's
-// addResizeHandlers listens to. The synthetic 'load' event fires after insertion so
-// vue-resize wires up its handlers normally.
-//
-// See: https://github.com/OrcaSlicer/OrcaSlicer/issues/7210
+// Workaround for #7210: WebKitGTK crashes on vue-resize's hidden <object> probe used by
+// older Fluidd/Mainsail pages. Swap that <object> for a <div> shim at appendChild time
+// and bridge resize events through a fake contentDocument.defaultView so vue-resize keeps
+// working. Workaround proposed by @VittC.
 static void inject_vue_resize_workaround(wxWebView *webView)
 {
     webView->AddUserScript(
@@ -65,6 +48,12 @@ static void inject_vue_resize_workaround(wxWebView *webView)
         "    shim.setAttribute('tabindex', '-1');"
         "    shim.style.display = 'none';"
         "    var fakeWin = document.createElement('div');"
+        "    var ro = null;"
+        "    var origRemoveEL = fakeWin.removeEventListener.bind(fakeWin);"
+        "    fakeWin.removeEventListener = function(type, fn, opts) {"
+        "      origRemoveEL(type, fn, opts);"
+        "      if (type === 'resize' && ro) { ro.disconnect(); ro = null; }"
+        "    };"
         "    Object.defineProperty(shim, 'contentDocument', {"
         "      configurable: true,"
         "      get: function() { return { defaultView: fakeWin }; }"
@@ -76,7 +65,7 @@ static void inject_vue_resize_workaround(wxWebView *webView)
         "    if (typeof orig.onload === 'function') { shim.onload = orig.onload; }"
         "    queueMicrotask(function() {"
         "      if (parentForRO && typeof ResizeObserver !== 'undefined') {"
-        "        var ro = new ResizeObserver(function() {"
+        "        ro = new ResizeObserver(function() {"
         "          fakeWin.dispatchEvent(new Event('resize'));"
         "        });"
         "        ro.observe(parentForRO);"
@@ -111,6 +100,12 @@ static void inject_vue_resize_workaround(wxWebView *webView)
 
 PrinterWebView::PrinterWebView(wxWindow *parent)
         : wxPanel(parent, wxID_ANY, wxDefaultPosition, wxDefaultSize)
+    , m_browser(nullptr)
+    , m_zoomFactor(100)
+    , m_apikey()
+    , m_apikey_sent(false)
+    , m_url_deferred()
+    , m_handler(std::make_unique<PrinterWebViewHandler>(*this))
  {
 
     wxBoxSizer* topsizer = new wxBoxSizer(wxVERTICAL);
@@ -134,6 +129,8 @@ PrinterWebView::PrinterWebView(wxWindow *parent)
 
     m_browser->Bind(wxEVT_WEBVIEW_ERROR, &PrinterWebView::OnError, this);
     m_browser->Bind(wxEVT_WEBVIEW_LOADED, &PrinterWebView::OnLoaded, this);
+    m_browser->Bind(wxEVT_WEBVIEW_NEWWINDOW, &PrinterWebView::OnNewWindow, this);
+    m_browser->Bind(wxEVT_WEBVIEW_SCRIPT_MESSAGE_RECEIVED, &PrinterWebView::OnScriptMessage, this);
 
     SetSizer(topsizer);
 
@@ -151,9 +148,6 @@ PrinterWebView::PrinterWebView(wxWindow *parent)
     }
     */
 
-    //Zoom
-    m_zoomFactor = 100;
-
     //Connect the idle events
     Bind(wxEVT_CLOSE_WINDOW, &PrinterWebView::OnClose, this);
 
@@ -163,10 +157,17 @@ PrinterWebView::~PrinterWebView()
 {
     BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << " Start";
     SetEvtHandlerEnabled(false);
+    m_handler.reset();
+
+    // Destroy the webview
+    if(m_browser){
+        m_browser->Destroy();
+        m_browser = nullptr;
+    }
+
 
     BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << " End";
 }
-
 
 void PrinterWebView::load_url(wxString& url, wxString apikey)
 {
@@ -176,9 +177,11 @@ void PrinterWebView::load_url(wxString& url, wxString apikey)
         return;
     m_apikey = apikey;
     m_apikey_sent = false;
+    m_handler = create_printer_webview_handler(*this);
 
     if (this->IsShown()) {
-        m_url_deferred.clear();
+        //ORCA: m_url_deferred will be cleared on load success
+        //m_url_deferred.clear();
         m_browser->LoadURL(url);
     } else {
         m_url_deferred = url;
@@ -191,7 +194,8 @@ bool PrinterWebView::Show(bool show)
 {
     if (show && !m_url_deferred.empty()) {
         m_browser->LoadURL(m_url_deferred);
-        m_url_deferred.clear();
+        //ORCA: m_url_deferred will be cleared on load success
+        //m_url_deferred.clear();
     }
     return wxPanel::Show(show);
 }
@@ -238,6 +242,15 @@ void PrinterWebView::SendAPIKey()
 )",
                                        m_apikey);
     m_browser->RemoveAllUserScripts();
+    
+    // RemoveAllUserScripts causes WebView to forget about our script message handler, 
+    // so re-add it here.
+    m_browser->RemoveScriptMessageHandler("wx");
+    if (m_browser->AddScriptMessageHandler("wx"))
+        WebView::MarkScriptMessageHandlerAdded(m_browser);
+    else
+        wxLogError("Could not add script message handler");
+
 #ifdef __linux__
     // Re-inject the vue-resize/WebKitGTK workaround that RemoveAllUserScripts just cleared.
     inject_vue_resize_workaround(m_browser);
@@ -279,12 +292,34 @@ void PrinterWebView::OnError(wxWebViewEvent &evt)
     BOOST_LOG_TRIVIAL(info) << __FUNCTION__<< boost::format(": error loading page %1% %2% %3% %4%") %evt.GetURL() %evt.GetTarget() %e %evt.GetString();
 }
 
-void PrinterWebView::OnLoaded(wxWebViewEvent &evt)
+void PrinterWebView::OnLoaded(wxWebViewEvent& evt)
 {
     if (evt.GetURL().IsEmpty())
         return;
+    //ORCA: url loaded successfully, safe to clear
+    m_url_deferred.clear();
     SendAPIKey();
+  
+    if (m_handler != nullptr) {
+        m_handler->on_loaded(evt);
+        return;
+    }
 }
+
+void PrinterWebView::OnNewWindow(wxWebViewEvent& evt)
+{
+  const wxString url = evt.GetURL();
+  if (!url.empty())
+    wxLaunchDefaultBrowser(url);
+  evt.Veto();
+}
+
+void PrinterWebView::OnScriptMessage(wxWebViewEvent& evt)
+{
+  if (m_handler != nullptr)
+    m_handler->on_script_message(evt);
+}
+
 
 } // GUI
 } // Slic3r

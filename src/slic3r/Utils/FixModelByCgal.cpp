@@ -19,7 +19,9 @@
 #include "libslic3r/MeshBoolean.hpp"
 #include "libslic3r/Model.hpp"
 #include "libslic3r/ModelTextureDataRemap.hpp"
+#include "libslic3r/Format/bbs_3mf.hpp"
 #include "libslic3r/format.hpp"
+#include "libslic3r/Thread.hpp"
 #include "../GUI/I18N.hpp"
 
 #include <wx/checkbox.h>
@@ -419,9 +421,12 @@ bool fix_model_with_cgal_gui(ModelObject                &model_object,
                              GUI::ProgressDialog        &progress_dialog,
                              const wxString             &msg_header,
                              std::string                &fix_result,
+                             bool                        keep_painting,
                              ModelRepairColorRemapStats *color_remap_stats,
                              ModelRepairPromptState     *prompt_state)
 {
+    // Hold SaveObjectGaurd to prevent backup manager from racing concurrent mesh mutations (use-after-free).
+    SaveObjectGaurd backup_gaurd(model_object);
     ModelRepairColorRemapStats local_color_stats;
     ModelRepairPromptState local_prompt_state;
     ModelRepairPromptState &active_prompt_state = prompt_state != nullptr ? *prompt_state : local_prompt_state;
@@ -525,8 +530,11 @@ bool fix_model_with_cgal_gui(ModelObject                &model_object,
                                       remap_requested,
                                       remap_region_painting_requested,
                                       repair_options,
+                                       keep_painting,
                                       color_snapshots = std::move(color_snapshots)]() {
         try {
+	        set_current_thread_name("cgal_fix_model");
+
             size_t start_volume = volume_idx == -1 ? 0 : size_t(volume_idx);
             size_t end_volume   = volume_idx == -1 ? std::numeric_limits<size_t>::max() : size_t(volume_idx);
 
@@ -548,13 +556,18 @@ bool fix_model_with_cgal_gui(ModelObject                &model_object,
                 if (repair_options.split_before_repair && repair_options.weld_same_position_vertices) {
                     TriangleMesh welded_mesh = volume->mesh();
                     pre_split_weld_changed = weld_same_position_vertices(welded_mesh);
-                    if (pre_split_weld_changed)
+                    if (pre_split_weld_changed) {
+                        // Preserve standard painting across the mesh replacement (upstream keep_painting).
+                        const std::optional<TriangleSelector::SavedPainting> weld_saved_painting =
+                            keep_painting ? volume->save_painting() : std::optional<TriangleSelector::SavedPainting>{};
                         volume->set_mesh(std::move(welded_mesh));
+                        volume->restore_painting(weld_saved_painting);
+                    }
                 }
 
                 size_t parts_count = 1;
                 if (repair_options.split_before_repair && volume->mesh().is_splittable()) {
-                    parts_count = volume->split(1);
+                    parts_count = volume->split(1, keep_painting);
                     if (parts_count > 1) {
                         const std::string msg = Slic3r::format(L("Split into %1% parts"), parts_count);
                         on_progress(RepairProgressStage::Repair, msg.c_str(), 15);
@@ -629,8 +642,12 @@ bool fix_model_with_cgal_gui(ModelObject                &model_object,
                             mesh_changed = true;
                         }
 
+                        // Preserve standard painting across the mesh replacement (upstream keep_painting).
+                        const std::optional<TriangleSelector::SavedPainting> repair_saved_painting =
+                            (keep_painting && mesh_changed) ? part_volume->save_painting() : std::optional<TriangleSelector::SavedPainting>{};
                         if (mesh_changed) {
                             part_volume->set_mesh(std::move(mesh));
+                            part_volume->restore_painting(repair_saved_painting);
                             part_changed = true;
                         }
 

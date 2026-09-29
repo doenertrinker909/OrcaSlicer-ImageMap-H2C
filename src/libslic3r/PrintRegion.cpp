@@ -71,12 +71,16 @@ static void append_used_physical_extruders_for_filament_id(const Print          
 unsigned int PrintRegion::extruder(FlowRole role) const
 {
     size_t extruder = 0;
-    if (role == frPerimeter || role == frExternalPerimeter)
-        extruder = m_config.wall_filament;
+    if (role == frPerimeter)
+        extruder = m_config.inner_wall_filament_id;
+    else if (role == frExternalPerimeter)
+        extruder = m_config.outer_wall_filament_id;
     else if (role == frInfill)
-        extruder = m_config.sparse_infill_filament;
-    else if (role == frSolidInfill || role == frTopSolidInfill)
-        extruder = m_config.solid_infill_filament;
+        extruder = m_config.sparse_infill_filament_id;
+    else if (role == frSolidInfill)
+        extruder = m_config.internal_solid_filament_id;
+    else if (role == frTopSolidInfill)
+        extruder = m_config.top_surface_filament_id;
     else
         throw Slic3r::InvalidArgument("Unknown role");
     return extruder;
@@ -89,7 +93,7 @@ Flow PrintRegion::flow(const PrintObject &object, FlowRole role, double layer_he
     // Get extrusion width from configuration.
     // (might be an absolute value, or a percent value, or zero for auto)
     if (role == frExternalPerimeter &&
-        filament_id_uses_texture_mapping(*object.print(), unsigned(std::max(0, m_config.wall_filament.value)))) {
+        filament_id_uses_texture_mapping(*object.print(), unsigned(std::max(0, m_config.outer_wall_filament_id.value)))) {
         config_width = ConfigOptionFloatOrPercent(
             std::max(0.05, print_config.texture_mapping_outer_wall_gradient_max_line_width.value),
             false);
@@ -120,9 +124,12 @@ Flow PrintRegion::flow(const PrintObject &object, FlowRole role, double layer_he
 
 coordf_t PrintRegion::nozzle_dmr_avg(const PrintConfig &print_config) const
 {
-    return (print_config.nozzle_diameter.get_at(m_config.wall_filament.value    - 1) + 
-            print_config.nozzle_diameter.get_at(m_config.sparse_infill_filament.value       - 1) + 
-            print_config.nozzle_diameter.get_at(m_config.solid_infill_filament.value - 1)) / 3.;
+    return (print_config.nozzle_diameter.get_at(m_config.outer_wall_filament_id.value    - 1) +
+            print_config.nozzle_diameter.get_at(m_config.inner_wall_filament_id.value    - 1) +
+            print_config.nozzle_diameter.get_at(m_config.sparse_infill_filament_id.value       - 1) +
+            print_config.nozzle_diameter.get_at(m_config.internal_solid_filament_id.value - 1) +
+            print_config.nozzle_diameter.get_at(m_config.top_surface_filament_id.value    - 1) +
+            print_config.nozzle_diameter.get_at(m_config.bottom_surface_filament_id.value - 1)) / 6.;
 }
 
 coordf_t PrintRegion::bridging_height_avg(const PrintConfig &print_config) const
@@ -139,12 +146,19 @@ void PrintRegion::collect_object_printing_extruders(const PrintConfig &print_con
     	int i = std::max(0, extruder_id - 1);
         object_extruders.emplace_back((i >= num_extruders) ? 0 : i);
     };
-    if (region_config.wall_loops.value > 0 || has_brim)
-    	emplace_extruder(region_config.wall_filament);
+    if (region_config.wall_loops.value > 0 || has_brim) {
+    	emplace_extruder(region_config.outer_wall_filament_id);
+                if (region_config.wall_loops.value > 1)
+			emplace_extruder(region_config.inner_wall_filament_id);
+    }
     if (region_config.sparse_infill_density.value > 0)
-    	emplace_extruder(region_config.sparse_infill_filament);
-    if (region_config.top_shell_layers.value > 0 || region_config.bottom_shell_layers.value > 0)
-    	emplace_extruder(region_config.solid_infill_filament);
+    	emplace_extruder(region_config.sparse_infill_filament_id);
+    if (region_config.sparse_infill_density.value > 0 || region_config.top_shell_layers.value > 0 || region_config.bottom_shell_layers.value > 0)
+    	emplace_extruder(region_config.internal_solid_filament_id);
+    if (region_config.top_shell_layers.value > 0)
+    	emplace_extruder(region_config.top_surface_filament_id);
+    if (region_config.bottom_shell_layers.value > 0)
+    	emplace_extruder(region_config.bottom_surface_filament_id);
 }
 
 void PrintRegion::collect_object_printing_extruders(const Print &print, std::vector<unsigned int> &object_extruders) const
@@ -160,16 +174,26 @@ void PrintRegion::collect_object_printing_extruders(const Print &print, std::vec
                 print.texture_mapping_manager().is_texture_mapping_zone_id(unsigned(filament_id)) ||
                 num_extruders > 0);
     };
-    assert(can_resolve_filament_id(this->config().wall_filament));
-    assert(can_resolve_filament_id(this->config().sparse_infill_filament));
-    assert(can_resolve_filament_id(this->config().solid_infill_filament));
+    assert(can_resolve_filament_id(this->config().outer_wall_filament_id));
+    assert(can_resolve_filament_id(this->config().inner_wall_filament_id));
+    assert(can_resolve_filament_id(this->config().sparse_infill_filament_id));
+    assert(can_resolve_filament_id(this->config().internal_solid_filament_id));
+    assert(can_resolve_filament_id(this->config().top_surface_filament_id));
+    assert(can_resolve_filament_id(this->config().bottom_surface_filament_id));
 #endif
-    if (this->config().wall_loops.value > 0 || print.has_brim())
-        append_used_physical_extruders_for_filament_id(print, this->config().wall_filament.value, object_extruders);
+    if (this->config().wall_loops.value > 0 || print.has_brim()) {
+        append_used_physical_extruders_for_filament_id(print, this->config().outer_wall_filament_id.value, object_extruders);
+        if (this->config().wall_loops.value > 1)
+            append_used_physical_extruders_for_filament_id(print, this->config().inner_wall_filament_id.value, object_extruders);
+    }
     if (this->config().sparse_infill_density.value > 0)
-        append_used_physical_extruders_for_filament_id(print, this->config().sparse_infill_filament.value, object_extruders);
-    if (this->config().top_shell_layers.value > 0 || this->config().bottom_shell_layers.value > 0)
-        append_used_physical_extruders_for_filament_id(print, this->config().solid_infill_filament.value, object_extruders);
+        append_used_physical_extruders_for_filament_id(print, this->config().sparse_infill_filament_id.value, object_extruders);
+    if (this->config().sparse_infill_density.value > 0 || this->config().top_shell_layers.value > 0 || this->config().bottom_shell_layers.value > 0)
+        append_used_physical_extruders_for_filament_id(print, this->config().internal_solid_filament_id.value, object_extruders);
+    if (this->config().top_shell_layers.value > 0)
+        append_used_physical_extruders_for_filament_id(print, this->config().top_surface_filament_id.value, object_extruders);
+    if (this->config().bottom_shell_layers.value > 0)
+        append_used_physical_extruders_for_filament_id(print, this->config().bottom_surface_filament_id.value, object_extruders);
 }
 
 }

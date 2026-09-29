@@ -56,7 +56,8 @@ extern bool fix_model_with_cgal_gui(ModelObject                 &model_object,
                                     int                          volume_idx,
                                     GUI::ProgressDialog         &progress_dlg,
                                     const wxString              &msg_header,
-                                    std::string                 &fix_result,
+                                    std::string                &fix_result,
+                                    bool                        keep_painting = false,
                                     ModelRepairColorRemapStats  *color_remap_stats = nullptr,
                                     ModelRepairPromptState      *prompt_state = nullptr);
 

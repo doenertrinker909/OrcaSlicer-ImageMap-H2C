@@ -2,6 +2,7 @@
 #define slic3r_GLGizmoMmuSegmentation_hpp_
 
 #include "GLGizmoPainterBase.hpp"
+#include "slic3r/GUI/I18N.hpp"
 
 #include "libslic3r/ImageMapRawFilamentOffsetAtlas.hpp"
 
@@ -126,14 +127,16 @@ public:
 
     void data_changed(bool is_serializing) override;
 
-    // Keep this in sync with the shared triangle-selector state range.
+    // The paint material limit follows EnforcerBlockerType::ExtruderMax: TriangleSelector
+    // serialization covers the extended (17..32) range through an escape nibble. Mixed-color
+    // filaments occupy ordinary slots, so they draw from the same budget as physical ones.
     static const constexpr size_t EXTRUDERS_LIMIT = static_cast<size_t>(EnforcerBlockerType::ExtruderMax);
 
     const float get_cursor_radius_min() const override { return CursorRadiusMin; }
 
     // BBS
     bool on_number_key_down(int number);
-    bool on_key_down_select_tool_type(int keyCode);
+    bool on_tool_shortcut(Shortcut shortcut) override;
 
 protected:
     // BBS
@@ -172,8 +175,14 @@ protected:
     
     // Filament remap feature
     std::vector<unsigned int>         m_remap_source_filament_ids;
-    std::vector<size_t>               m_extruder_remap;
+    std::vector<size_t>               m_extruder_remap;      // index → target extruder index
     bool                              m_show_filament_remap_ui = false;
+    // Colours each gradient mixed filament actually prints, bottom of the model first, mirrored
+    // from Plater so the extruder swatches draw the same fade the editor previews. Plain
+    // filament slots keep an empty ramp.
+    std::vector<std::vector<wxColour>> m_gradient_ramps;
+    // ORCA: Cache used filaments to filter UI
+    std::set<size_t>                  m_used_filaments;      // Set of used filament indices (cached)
 
     static const constexpr float      CursorRadiusMin = 0.1f; // cannot be zero
 
@@ -191,6 +200,15 @@ private:
     PainterGizmoType get_painter_type() const override;
 
     void init_model_triangle_selectors();
+
+    // ORCA
+    bool draw_color_button(int idx, const char* id_str, const ColorRGBA& color, ColorRGBA& map_color, bool active, float scale);
+    // Gradient ramp of a filament slot, or nullptr when the slot is a plain single color
+    // filament. A non-null result is never empty.
+    const std::vector<wxColour>* gradient_of(int idx) const
+    {
+        return idx >= 0 && idx < (int) m_gradient_ramps.size() && !m_gradient_ramps[idx].empty() ? &m_gradient_ramps[idx] : nullptr;
+    }
 
     // BBS
     void update_triangle_selectors_colors();
@@ -258,6 +276,9 @@ private:
     void finish_selected_regions_color_data_conversion(ModelObject &object);
     void clear_selected_object_image_texture_data();
     void clear_selected_object_texture_mapping_color_data();
+    void render_filament_remap_ui(float window_width, float max_tooltip_width, float scale);
+    // ORCA: Helper to update the cache of used filaments
+    void update_used_filaments();
 
     // This map holds all translated description texts, so they can be easily referenced during layout calculations
     // etc. When language changes, GUI is recreated and this class constructed again, so the change takes effect.

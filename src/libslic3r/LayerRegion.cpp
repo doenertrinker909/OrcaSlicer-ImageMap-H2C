@@ -4,6 +4,7 @@
 #include "Color.hpp"
 #include "Geometry.hpp"
 #include "PerimeterGenerator.hpp"
+#include "Point.hpp"
 #include "Print.hpp"
 #include "Surface.hpp"
 #include "BoundingBox.hpp"
@@ -2661,7 +2662,7 @@ static SurfaceCollection perimeter_path_modulated_surfaces(const LayerRegion    
 
 static bool region_uses_overhang_texture_mapping(const Print &print, const PrintRegionConfig &region_config)
 {
-    const int filament_id = region_config.wall_filament.value;
+    const int filament_id = region_config.outer_wall_filament_id.value;
     if (filament_id <= 0)
         return false;
 
@@ -2673,7 +2674,7 @@ static const TextureMappingZone *perimeter_path_modulation_zone_for_region(const
                                                                            const PrintRegionConfig &region_config,
                                                                            unsigned int            &texture_zone_id)
 {
-    const int filament_id = region_config.wall_filament.value;
+    const int filament_id = region_config.outer_wall_filament_id.value;
     if (filament_id <= 0)
         return nullptr;
 
@@ -2787,16 +2788,26 @@ Flow LayerRegion::bridging_flow(FlowRole role, bool thick_bridge) const
     const PrintRegionConfig &region_config  = region.config();
     const PrintObject       &print_object   = *this->layer()->object();
     Flow bridge_flow;
+    // Here this->extruder(role) - 1 may underflow to MAX_INT, but then the get_at() will fall back to zero'th element, so everything is all right.
     auto nozzle_diameter = float(print_object.print()->config().nozzle_diameter.get_at(region.extruder(role) - 1));
+    const ConfigOptionFloatOrPercent& bridge_width_opt = region_config.bridge_line_width;
+    const double                      bridge_width      = bridge_width_opt.get_abs_value(nozzle_diameter);
+    const bool                        has_bridge_width  = bridge_width > 0.;
+    const double                      bridge_flow_ratio = region_config.bridge_flow;
+
     if (thick_bridge) {
         // The old Slic3r way (different from all other slicers): Use rounded extrusions.
         // Get the configured nozzle_diameter for the extruder associated to the flow role requested.
-        // Here this->extruder(role) - 1 may underflow to MAX_INT, but then the get_at() will follback to zero'th element, so everything is all right.
-        // Applies default bridge spacing.
-        bridge_flow = Flow::bridging_flow(float(sqrt(region_config.bridge_flow)) * nozzle_diameter, nozzle_diameter);
+        float thread_diameter = has_bridge_width ? float(bridge_width) : nozzle_diameter;
+        if (bridge_flow_ratio > 0.)
+            thread_diameter *= float(sqrt(bridge_flow_ratio));
+        bridge_flow = Flow::bridging_flow(thread_diameter, nozzle_diameter);
     } else {
         // The same way as other slicers: Use normal extrusions. Apply bridge_flow while maintaining the original spacing.
-        bridge_flow = this->flow(role).with_flow_ratio(region_config.bridge_flow);
+        Flow base_flow = this->flow(role);
+        if (has_bridge_width)
+            base_flow = Flow(float(bridge_width), base_flow.height(), nozzle_diameter);
+        bridge_flow = base_flow.with_flow_ratio(bridge_flow_ratio);
     }
     return bridge_flow;
 
@@ -2839,6 +2850,11 @@ void LayerRegion::make_perimeters(const SurfaceCollection &slices, const LayerRe
     const float texture_external_width_mm =
         std::max(0.05f, float(print_config.texture_mapping_outer_wall_gradient_max_line_width.value));
     const float normal_external_width_mm = std::max(0.05f, float(this->flow(frExternalPerimeter).width()));
+    double model_rotation_rad = 0.0;
+    if (region_config.align_infill_direction_to_model) {
+        auto m = this->layer()->object()->trafo().matrix();
+        model_rotation_rad = std::atan2((double)m(1, 0), (double)m(0, 0));
+    }
 
     SurfaceCollection modulated_slices;
     const SurfaceCollection *perimeter_slices = &slices;
@@ -2950,6 +2966,7 @@ void LayerRegion::make_perimeters(const SurfaceCollection &slices, const LayerRe
             &this->layer()->object()->config(),
             &print_config,
             spiral_mode,
+            model_rotation_rad,
 
             // output:
             &this->perimeters,
@@ -2959,9 +2976,12 @@ void LayerRegion::make_perimeters(const SurfaceCollection &slices, const LayerRe
             fill_no_overlap
         );
 
-        if (this->layer()->lower_layer != nullptr)
-            // Cummulative sum of polygons over all the regions.
-            g.lower_slices = &this->layer()->lower_layer->lslices;
+        ExPolygons printable_lower_slices;
+        if (this->layer()->lower_layer != nullptr) {
+            // Cumulative sum of polygons over all the regions, less what the lower layer could not print.
+            printable_lower_slices = g.printable_slices(this->layer()->lower_layer->lslices);
+            g.lower_slices = &printable_lower_slices;
+        }
         if (this->layer()->upper_layer != NULL)
             g.upper_slices = &this->layer()->upper_layer->lslices;
 
@@ -3459,10 +3479,27 @@ void LayerRegion::process_external_surfaces(const Layer *lower_layer, const Poly
     SurfaceCollection bridges;
     {
         BOOST_LOG_TRIVIAL(trace) << "Processing external surface, detecting bridges. layer" << this->layer()->print_z;
-        const double custom_angle = this->region().config().bridge_angle.value;
-        bridges.surfaces = custom_angle > 0 ?
-            expand_merge_surfaces(this->fill_surfaces.surfaces, stBottomBridge, expansion_zones, closing_radius, Geometry::deg2rad(custom_angle)) :
+        // ORCA: Relative/Align Bridge Angle
+        const auto  &region_config    = this->region().config();
+        const double custom_angle_deg = region_config.bridge_angle.value;
+        const bool   relative_angle   = region_config.relative_bridge_angle.value;
+        const double custom_angle_rad = Geometry::deg2rad(custom_angle_deg);
+
+        double align_offset_rad = 0.0;
+        if (region_config.align_infill_direction_to_model) {
+            auto m = this->layer()->object()->trafo().matrix();
+            align_offset_rad = std::atan2((double)m(1, 0), (double)m(0, 0));
+        }
+
+        bridges.surfaces = (custom_angle_deg > 0.0 && !relative_angle) ?
+            expand_merge_surfaces(this->fill_surfaces.surfaces, stBottomBridge, expansion_zones, closing_radius, custom_angle_rad + align_offset_rad) :
             expand_bridges_detect_orientations(this->fill_surfaces.surfaces, expansion_zones, closing_radius);
+        if (custom_angle_deg > 0.0 && relative_angle) {
+            for (Surface &bridge_surface : bridges.surfaces) {
+                if (bridge_surface.bridge_angle >= 0)
+                    bridge_surface.bridge_angle += custom_angle_rad;
+            }
+        }
         BOOST_LOG_TRIVIAL(trace) << "Processing external surface, detecting bridges - done";
 #ifdef SLIC3R_DEBUG_SLICE_PROCESSING
         {
@@ -3724,12 +3761,25 @@ void LayerRegion::process_external_surfaces(const Layer *lower_layer, const Poly
                 // would get merged into a single one while they need different directions
                 // also, supply the original expolygon instead of the grown one, because in case
                 // of very thin (but still working) anchors, the grown expolygon would go beyond them
-                double custom_angle = Geometry::deg2rad(this->region().config().bridge_angle.value);
-                if (custom_angle > 0.0) {
-                    bridges[idx_last].bridge_angle = custom_angle;
+                // ORCA: Relative/Align Bridge Angle
+                const auto &region_config   = this->region().config();
+                const double custom_angle_deg = region_config.bridge_angle.value;
+                const bool   relative_angle   = region_config.relative_bridge_angle.value;
+                const double custom_angle_rad = Geometry::deg2rad(custom_angle_deg);
+
+                double align_offset_rad = 0.0;
+                if (region_config.align_infill_direction_to_model) {
+                    auto m = this->layer()->object()->trafo().matrix();
+                    align_offset_rad = std::atan2((double)m(1, 0), (double)m(0, 0));
+                }
+
+                if (custom_angle_deg > 0.0 && !relative_angle) {
+                    bridges[idx_last].bridge_angle = custom_angle_rad + align_offset_rad;
                 } else {
                     auto [bridging_dir, unsupported_dist] = detect_bridging_direction(to_polygons(initial), to_polygons(lower_layer->lslices));
                     bridges[idx_last].bridge_angle = PI + std::atan2(bridging_dir.y(), bridging_dir.x());
+                    if (custom_angle_deg > 0.0 && relative_angle)
+                        bridges[idx_last].bridge_angle += custom_angle_rad;
                 }
 
                 /*

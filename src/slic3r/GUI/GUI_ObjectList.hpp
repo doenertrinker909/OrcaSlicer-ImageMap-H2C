@@ -40,6 +40,9 @@ typedef std::map<t_layer_height_range, ModelConfig> t_layer_config_ranges;
 #define FIX_THROUGH_CGAL_ALWAYS 1
 
 namespace GUI {
+
+enum class Shortcut : uint8_t;
+
 struct ObjectVolumeID {
     ModelObject* object{ nullptr };
     ModelVolume* volume{ nullptr };
@@ -192,6 +195,13 @@ private:
     int 	    m_last_selected_column = -1;
 #endif /* __MSW__ */
 
+#ifdef __WXOSX__
+    bool m_starting_filament_editor = false;
+    wxDataViewItem m_filament_editor_item { nullptr };
+    bool is_live_model_item(wxDataViewItem item) const;
+    void start_filament_editor(wxDataViewItem item);
+#endif // __WXOSX__
+
 #if 0
     SettingsFactory::Bundle m_freq_settings_fff;
     SettingsFactory::Bundle m_freq_settings_sla;
@@ -263,7 +273,11 @@ public:
     void                extruder_editing();
 #ifndef __WXOSX__
     void                key_event(wxKeyEvent& event);
+#else
+    // wxDataViewCtrl never sees key events on macOS, so the bindings are installed as accelerators.
+    void                update_shortcut_accelerators();
 #endif /* __WXOSX__ */
+    bool                dispatch_shortcut(Shortcut shortcut);
 
     void                copy();
     void                paste();
@@ -476,8 +490,8 @@ public:
 
 private:
 #ifdef __WXOSX__
-//    void OnChar(wxKeyEvent& event);
     wxAcceleratorTable m_accel;
+    wxWindowID         m_shortcut_id_base;
 #endif /* __WXOSX__ */
     void OnContextMenu(wxDataViewEvent &event);
     void list_manipulation(const wxPoint& mouse_pos, bool evt_context_menu = false);

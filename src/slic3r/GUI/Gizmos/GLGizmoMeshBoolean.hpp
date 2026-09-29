@@ -38,6 +38,8 @@ struct VolumeInfo {
     void serialize(Archive& ar) {
         ar(volume_idx, trafo);
     }
+
+    std::optional<TriangleSelector::SavedPainting> save_painting() const;
 };
 class GLGizmoMeshBoolean : public GLGizmoBase
 {
@@ -77,7 +79,7 @@ protected:
     virtual void on_render() override;
     virtual void on_set_state() override;
     virtual CommonGizmosDataID on_get_requirements() const override;
-    virtual void on_render_input_window(float x, float y, float bottom_limit);
+    virtual void on_render_input_window(float x, float y, float bottom_limit) override;
 
     void on_load(cereal::BinaryInputArchive &ar) override;
     void on_save(cereal::BinaryOutputArchive &ar) const override;
@@ -92,8 +94,9 @@ private:
     VolumeInfo m_tool;
 
     void run_boolean_operation(const std::string &boolean_opts, bool delete_input);
-    void generate_new_volume(bool delete_input,
-                             const TriangleMesh& mesh_result,
+    void generate_new_volume(const bool delete_input,
+                             TriangleMesh& mesh_result,
+                             const std::vector<std::optional<TriangleSelector::SavedPainting>>* saved_paintings = nullptr,
                              const std::vector<MultiSourceTextureDataSource>* sources = nullptr,
                              const std::vector<MeshBoolean::mcut::MeshFaceProvenance>* provenance = nullptr);
 };

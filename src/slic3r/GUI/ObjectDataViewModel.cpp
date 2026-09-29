@@ -67,7 +67,7 @@ struct InfoItemAtributes {
 
 const std::map<InfoItemType, InfoItemAtributes> INFO_ITEMS{
 //           info_item Type                         info_item Name              info_item BitmapName
-            { InfoItemType::CustomSupports,      {L("Support painting"),       "toolbar_support" },     },
+            { InfoItemType::CustomSupports,      {L("Support Painting"),       "toolbar_support" },     },
             //{ InfoItemType::CustomSeam,          {L("Paint-on seam"),           "seam_" },             },
             { InfoItemType::MmSegmentation,     {L("Color region painting"),   "mmu_segmentation"},  },
             //{ InfoItemType::Sinking,             {L("Sinking"),                 "objlist_sinking"}, },
@@ -332,12 +332,16 @@ bool ObjectDataViewModelNode::SetValue(const wxVariant& variant, unsigned col)
         m_variable_height_icon << variant;
         return true;
     case colName: {
+        if (variant.GetType() != wxT("DataViewBitmapText"))
+            return false;
         DataViewBitmapText data;
         data << variant;
         m_bmp = data.GetBitmap();
         m_name = data.GetText();
         return true; }
     case colFilament: {
+        if (variant.GetType() != wxT("DataViewBitmapText"))
+            return false;
         DataViewBitmapText data;
         data << variant;
         m_extruder_bmp = data.GetBitmap();

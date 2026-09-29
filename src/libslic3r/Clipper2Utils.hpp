@@ -75,6 +75,7 @@ Slic3r::ExPolygons         union_ex_2(const Slic3r::ExPolygons &expolygons, bool
 Slic3r::ExPolygons         offset_ex_2(const Clipper2Lib::Paths64 &paths, double delta, ClipperLib::JoinType join_type, double miter_limit);
 Slic3r::ExPolygons         offset_ex_2(const Slic3r::ExPolygon &expolygon, double delta, ClipperLib::JoinType join_type, double miter_limit);
 Slic3r::ExPolygons         offset_ex_2(const Slic3r::ExPolygons &expolygons, double delta);
+Slic3r::ExPolygons         offset_ex_2(const Slic3r::ExPolygons &expolygons, double delta, Clipper2Lib::JoinType joinType);
 Slic3r::ExPolygons         offset_ex_2(const Slic3r::ExPolygons &expolygons, double delta, ClipperLib::JoinType join_type, double miter_limit);
 Slic3r::ExPolygons         offset2_ex_2(const Slic3r::ExPolygons &expolygons, double delta1, double delta2);
 Slic3r::ExPolygons         offset2_ex_2(const Slic3r::ExPolygons &expolygons, double delta1, double delta2, ClipperLib::JoinType join_type, double miter_limit);

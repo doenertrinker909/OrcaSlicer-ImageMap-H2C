@@ -13,6 +13,7 @@
 #include "slic3r/GUI/NotificationManager.hpp"
 #include "slic3r/GUI/format.hpp"
 #include "slic3r/GUI/GUI_ObjectList.hpp"
+#include "slic3r/plugin/PluginManager.hpp"
 
 #include "libnest2d/common.hpp"
 
@@ -267,8 +268,7 @@ arrangement::ArrangePolygon estimate_wipe_tower_info(int plate_index, std::set<i
     int extruder_size = extruder_ids.size();
 
     Vec3d wipe_tower_size, wipe_tower_pos;
-    int nozzle_nums = wxGetApp().preset_bundle->get_printer_extruder_count();
-    auto arrange_poly = ppl.get_plate(plate_index_valid)->estimate_wipe_tower_polygon(full_config, plate_index, wipe_tower_pos, wipe_tower_size, nozzle_nums, extruder_size);
+    auto arrange_poly = ppl.get_plate(plate_index_valid)->estimate_wipe_tower_polygon(full_config, plate_index, wipe_tower_pos, wipe_tower_size, extruder_size);
     arrange_poly.bed_idx = plate_index;
     return arrange_poly;
 }
@@ -563,7 +563,7 @@ void ArrangeJob::process(Ctl &ctl)
     params.stopcondition = [&ctl]() { return ctl.was_canceled(); };
 
     params.progressind = [this, &ctl](unsigned num_finished, std::string str = "") {
-        ctl.update_status(num_finished * 100 / status_range(), _u8L("Arranging") + str);
+        ctl.update_status(num_finished * 100 / status_range(), _u8L("Arranging ") + str);
     };
 
     {
@@ -607,7 +607,7 @@ void ArrangeJob::process(Ctl &ctl)
     // finalize just here.
     ctl.update_status(100,
         ctl.was_canceled() ? _u8L("Arranging canceled.") :
-        we_have_unpackable_items ? _u8L("Arranging is done but there are unpacked items. Reduce spacing and try again.") : _u8L("Arranging done."));
+        we_have_unpackable_items ? _u8L("Arranging complete, but some items were not able to be arranged. Reduce spacing and try again.") : _u8L("Arranging done."));
 }
 
 ArrangeJob::ArrangeJob() : m_plater{wxGetApp().plater()} { }
@@ -712,6 +712,13 @@ void ArrangeJob::finalize(bool canceled, std::exception_ptr &eptr) {
 
         ap.apply();
         BOOST_LOG_TRIVIAL(debug) << __FUNCTION__ << boost::format(":arrange m_unprintable: name: %4%, bed_id %1%, trans {%2%,%3%}") % ap.bed_idx % unscale<double>(ap.translation(X)) % unscale<double>(ap.translation(Y)) % ap.name;
+    }
+
+    {
+        Slic3r::LifecycleEventContext ctx;
+        ctx.code = Slic3r::LifecycleEvtCode::Ok;
+        ctx.msg = "arranged";
+        Slic3r::fire_lifecycle_event(Slic3r::LifecycleEvent::ObjectTransformed, ctx);
     }
 
     m_plater->update();

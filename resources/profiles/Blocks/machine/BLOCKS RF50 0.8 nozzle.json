@@ -3,8 +3,8 @@
 	"name": "BLOCKS RF50 0.8 nozzle",
 	"inherits": "fdm_klipper_common",
 	"from": "system",
+	"setting_id": "YTckxiK7XiR4GfOJ",
 	"instantiation": "true",
-	"settings_id": "GM011",
 	"printer_model": "BLOCKS RF50",
 	"default_print_profile": "0.38mm Standard 0.8 nozzle @Blocks_RF50",
 	"max_layer_height": [
@@ -51,7 +51,7 @@
 		"12"
 	],
 	"retraction_length": [
-		"1"
+		"1.2"
 	],
 	"retraction_speed": [
 		"60"
@@ -80,5 +80,10 @@
 	],
 	"retract_before_wipe": [
 		"0"
-	]
+	],
+	"default_filament_profile": [
+		"Blocks PLA @Blocks_RF50"
+	],
+	"support_multi_bed_types": "1",
+	"default_bed_type": "Textured PEI Plate"
 }

@@ -12506,9 +12506,9 @@ std::string GCode::extrude_support(const ExtrusionEntityCollection &support_fill
     static constexpr const char* support_ironing_label    = "support ironing";
 
     // Not static: it captures `this` by reference.
-    const auto speed_for_path = [&](double length, ExtrusionRole role, double default_speed = -1.0) {
+    const auto speed_for_path = [&](double length, ExtrusionRole role) {
         if (!is_support(role) || length > SMALL_PERIMETER_LENGTH(NOZZLE_CONFIG(small_support_perimeter_threshold)))
-            return default_speed;
+            return -1.0;
 
         double small_perimeter_speed = -1.0;
 
@@ -12520,7 +12520,7 @@ std::string GCode::extrude_support(const ExtrusionEntityCollection &support_fill
         else
             small_perimeter_speed = NOZZLE_CONFIG(small_support_perimeter_speed).get_abs_value(base_speed);
 
-        return small_perimeter_speed > 0 ? small_perimeter_speed : default_speed;
+        return small_perimeter_speed > 0 ? small_perimeter_speed : -1.0;
     };
 
     std::string gcode;

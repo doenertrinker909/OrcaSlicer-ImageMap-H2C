@@ -10013,8 +10013,8 @@ static bool top_surface_image_append_recolored_perimeter_path(ExtrusionEntitiesP
     };
 
     for (size_t point_idx = 1; point_idx < path.polyline.points.size(); ++point_idx) {
-        const Point &p0 = path.polyline.points[point_idx - 1];
-        const Point &p1 = path.polyline.points[point_idx];
+        const Point p0 = path.polyline.points[point_idx - 1].to_point();
+        const Point p1 = path.polyline.points[point_idx].to_point();
         const double len_mm = unscale<double>(p0.distance_to(p1));
         if (!std::isfinite(len_mm) || len_mm <= EPSILON)
             continue;
@@ -11074,8 +11074,8 @@ static ExtrusionPaths top_surface_image_split_path(const ExtrusionPath &path,
     for (size_t point_idx = 1; point_idx < path.polyline.points.size(); ++point_idx) {
         if ((point_idx & 63) == 1)
             check_canceled(throw_if_canceled);
-        const Point p0 = path.polyline.points[point_idx - 1];
-        const Point p1 = path.polyline.points[point_idx];
+        const Point p0 = path.polyline.points[point_idx - 1].to_point();
+        const Point p1 = path.polyline.points[point_idx].to_point();
         const double len_mm = unscale<double>(p0.distance_to(p1));
         if (!std::isfinite(len_mm) || len_mm <= EPSILON)
             continue;

@@ -17,7 +17,6 @@
 #if __APPLE__
 #import <IOKit/pwr_mgt/IOPMLib.h>
 #elif _WIN32
-#ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
 #ifndef NOMINMAX
 #define NOMINMAX

@@ -373,6 +373,7 @@ public:
     // slots live. A caller adding physical filaments has to add num_mixed_filaments() on top and
     // then move the new slots ahead of the mixed tail, as Sidebar::add_custom_filament does.
     void            set_num_filaments(unsigned int n, std::string new_col = "");
+    void            set_num_filaments(unsigned int n, std::vector<std::string> new_colors);
     void         update_num_filaments(unsigned int to_del_flament_id);
 
     void get_ams_cobox_infos(AMSComboInfo &combox_info);

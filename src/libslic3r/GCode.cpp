@@ -11952,8 +11952,8 @@ std::optional<PreferredSeamPoint> GCode::texture_mapping_seam_hiding_hint(const 
     if (best_path != nullptr &&
         best_candidate.segment_index > 0 &&
         best_candidate.segment_index < best_path->polyline.points.size()) {
-        const Point &a = best_path->polyline.points[best_candidate.segment_index - 1];
-        const Point &b = best_path->polyline.points[best_candidate.segment_index];
+        const Point a = best_path->polyline.points[best_candidate.segment_index - 1].to_point();
+        const Point b = best_path->polyline.points[best_candidate.segment_index].to_point();
         const double len_mm = unscale<double>((b - a).cast<double>().norm());
         if (len_mm > EPSILON) {
             const float best_path_outer_width_mm = std::max(

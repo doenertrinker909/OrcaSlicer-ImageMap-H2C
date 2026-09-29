@@ -1853,7 +1853,7 @@ static void perimeter_texture_append_recolor_path_piece(std::vector<PerimeterTex
         unscale<double>(polyline.length()) + unscale<double>(std::max<double>(1.0, double(SCALED_EPSILON))) <
             2.0 * double(source.width))
         extruder_override = -1;
-    ExtrusionPath *path = new ExtrusionPath(std::move(polyline), source);
+    ExtrusionPath *path = new ExtrusionPath(Polyline3(polyline), source);
     path->inset_idx = source.inset_idx;
     pieces.push_back(PerimeterTextureRecolorEntityPiece{ extruder_override, path });
 }

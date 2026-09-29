@@ -3018,7 +3018,7 @@ Polygon WipeTower2::generate_support_rib_wall(WipeTowerWriter2&                 
         } else {
             prime_tower_append_texture_tool(texture_normalization_tools, m_current_tool, texture_tool_count);
         }
-        const bool closed_texture_path = !rib_wall && !skip_points;
+        const bool closed_texture_path = !rib_wall && !m_use_gap_wall;
         std::vector<Vec2f> points;
         points.reserve(result_wall.front().points.size());
         for (const Point &point : result_wall.front().points)

@@ -209,7 +209,7 @@ static double calc_max_layer_height(const PrintConfig &config, double max_object
 static FilamentChangeStats calc_filament_change_info_by_toolorder(const PrintConfig* config, const MultiNozzleUtils::LayeredNozzleGroupResult& group_result, const std::vector<FlushMatrix>& flush_matrix, const std::vector<std::vector<unsigned int>>& layer_sequences)
 {
     FilamentChangeStats ret;
-    if (config == nullptr || filament_map.empty() || flush_matrix.empty())
+    if (config == nullptr || flush_matrix.empty())
         return ret;
 
     std::unordered_map<int, int> flush_volume_per_filament;
@@ -973,6 +973,7 @@ void ToolOrdering::collect_extruders(const PrintObject &object, const std::vecto
                         append_layer_filament(region.config().inner_wall_filament_id.value);
                     if (layerCount == 0) {
                         firstLayerExtruders.emplace_back(layer_tools.resolve_filament_id(filament_id));
+                    }
                 }
 
                 layer_tools.has_object = true;

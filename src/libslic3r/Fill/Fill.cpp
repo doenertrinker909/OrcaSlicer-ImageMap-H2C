@@ -9977,7 +9977,7 @@ static void top_surface_image_append_perimeter_path_piece(ExtrusionEntitiesPtr &
     remove_same_neighbor(polyline);
     if (polyline.points.size() < 2 || polyline.length() <= SCALED_EPSILON)
         return;
-    ExtrusionPath *path = new ExtrusionPath(std::move(polyline), source);
+    ExtrusionPath *path = new ExtrusionPath(Polyline3(polyline), source);
     if (extruder_override < 0) {
         out.emplace_back(path);
         return;
@@ -10579,7 +10579,7 @@ static void top_surface_image_append_rectilinear_repair_lines(ExtrusionEntityCol
                            params.flow.mm3_per_mm(),
                            params.flow.width(),
                            params.flow.height());
-        path.polyline = std::move(polyline);
+        path.polyline = Polyline3(polyline);
         path.intersect_expolygons(clip, &collection);
     }
 }
@@ -11102,7 +11102,7 @@ static ExtrusionPaths top_surface_image_split_path(const ExtrusionPath &path,
             Polyline polyline;
             polyline.points.emplace_back(q0);
             polyline.points.emplace_back(q1);
-            ExtrusionPath segment(std::move(polyline), path);
+            ExtrusionPath segment(Polyline3(polyline), path);
             segment.width = width;
             segment.height = height;
             segment.mm3_per_mm = Flow(width, height, nozzle_diameter).mm3_per_mm();
@@ -11289,7 +11289,7 @@ static void top_surface_image_same_layer_partition_fill(ExtrusionEntityCollectio
                                Flow(lane_width, params.flow.height(), params.flow.nozzle_diameter()).mm3_per_mm(),
                                lane_width,
                                params.flow.height());
-            path.polyline = std::move(polyline);
+            path.polyline = Polyline3(polyline);
             path.intersect_expolygons(clip, &collection);
         }
     }
@@ -11348,7 +11348,7 @@ static void top_surface_image_append_boundary_skin_path_coverage(const Extrusion
                                                                  const float scaled_epsilon)
 {
     if (path.is_closed() && path.polyline.points.size() >= 4) {
-        Polygon polygon(path.polyline.points);
+        Polygon polygon(path.polyline.to_polyline().points);
         if (polygon.points.size() > 1 && polygon.points.front() == polygon.points.back())
             polygon.points.pop_back();
         remove_same_neighbor(polygon);
@@ -11566,7 +11566,7 @@ static std::unique_ptr<ExtrusionEntityCollection> top_surface_image_spiral_colle
                                                 params.flow.mm3_per_mm(),
                                                 params.flow.width(),
                                                 params.flow.height());
-        path->polyline = std::move(polyline);
+        path->polyline = Polyline3(polyline);
         collection->entities.emplace_back(path);
     }
     if (leftover != nullptr)
@@ -11690,7 +11690,7 @@ static std::unique_ptr<ExtrusionEntityCollection> top_surface_image_boundary_ski
                                                         output_flow.mm3_per_mm(),
                                                         output_flow.width(),
                                                         output_flow.height());
-                path->polyline = std::move(polyline);
+                path->polyline = Polyline3(polyline);
                 collection->entities.emplace_back(path);
             }
             top_surface_image_reorder_boundary_skin_entities(*collection);
@@ -13092,36 +13092,46 @@ static ExtrusionPath *top_surface_image_last_extrusion_path(ExtrusionEntitiesPtr
     return nullptr;
 }
 
-static double top_surface_image_boundary_skin_start_distance_sq(const Polyline &polyline, const Point &anchor)
+static double top_surface_image_boundary_skin_start_distance_sq(const Polyline3 &polyline, const Point &anchor)
 {
     if (!polyline.is_valid())
         return std::numeric_limits<double>::max();
-    if (polyline.is_closed()) {
+    const bool is_closed = !polyline.points.empty() && polyline.points.front() == polyline.points.back();
+    if (is_closed) {
         double best = std::numeric_limits<double>::max();
         const size_t point_count = polyline.points.size() > 1 ? polyline.points.size() - 1 : polyline.points.size();
         for (size_t i = 0; i < point_count; ++i)
-            best = std::min(best, (polyline.points[i] - anchor).cast<double>().squaredNorm());
+            best = std::min(best, (polyline.points[i].to_point() - anchor).cast<double>().squaredNorm());
         return best;
     }
-    return std::min((polyline.first_point() - anchor).cast<double>().squaredNorm(),
-                    (polyline.last_point() - anchor).cast<double>().squaredNorm());
+    return std::min((polyline.first_point().to_point() - anchor).cast<double>().squaredNorm(),
+                    (polyline.last_point().to_point() - anchor).cast<double>().squaredNorm());
 }
 
-static void top_surface_image_boundary_skin_orient_near(Polyline &polyline, const Point &anchor)
+static void top_surface_image_boundary_skin_orient_near(Polyline3 &polyline, const Point &anchor)
 {
     if (!polyline.is_valid())
         return;
-    if (polyline.is_closed()) {
-        Points points = polyline.points;
+    const bool is_closed = !polyline.points.empty() && polyline.points.front() == polyline.points.back();
+    if (is_closed) {
+        Points3 points = polyline.points;
         points.pop_back();
         if (points.empty())
             return;
-        const int nearest_idx = anchor.nearest_point_index(points);
+        size_t nearest_idx = 0;
+        double best_sq = std::numeric_limits<double>::max();
+        for (size_t i = 0; i < points.size(); ++i) {
+            double sq = (points[i].to_point() - anchor).cast<double>().squaredNorm();
+            if (sq < best_sq) {
+                best_sq = sq;
+                nearest_idx = i;
+            }
+        }
         std::rotate(points.begin(), points.begin() + nearest_idx, points.end());
         points.emplace_back(points.front());
         polyline.points = std::move(points);
-    } else if ((polyline.last_point() - anchor).cast<double>().squaredNorm() <
-               (polyline.first_point() - anchor).cast<double>().squaredNorm()) {
+    } else if ((polyline.last_point().to_point() - anchor).cast<double>().squaredNorm() <
+               (polyline.first_point().to_point() - anchor).cast<double>().squaredNorm()) {
         polyline.reverse();
     }
 }

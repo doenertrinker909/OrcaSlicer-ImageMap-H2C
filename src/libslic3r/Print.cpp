@@ -5218,8 +5218,7 @@ void Print::_make_wipe_tower()
                 std::vector<unsigned int> texture_mapping_layer_tools = prime_tower_texture_layer_tools(layer_tools);
                 const int texture_mapping_wall_tool = prime_tower_texture_wall_tool(layer_tools);
                 wipe_tower.plan_toolchange((float) layer_tools.print_z, (float) layer_tools.wipe_tower_layer_height,
-                                           current_extruder_id, current_extruder_id, 0.f, 0.f, 0.f,
-                                           layer_tools.has_texture_mapping_zone && layer_tools.extruders.size() == 1,
+                                           current_extruder_id, current_extruder_id, 0.f,
                                            texture_mapping_layer_tools, texture_mapping_wall_tool);
                 for (const auto extruder_id : layer_tools.extruders) {
                     if ((first_layer && extruder_id == m_wipe_tower_data.tool_ordering.all_extruders().back()) || extruder_id !=

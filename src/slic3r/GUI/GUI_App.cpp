@@ -417,17 +417,6 @@ public:
         }
     }
 
-    // Orca: keep the splash alive until it is explicitly destroyed.
-    // wxSplashScreen installs an application-wide event filter that calls
-    // Close() (which Destroy()s the window) on ANY key press or mouse-button
-    // down. Since startup keeps the splash up across the whole load_presets()
-    // and main-window-creation phase, a single stray click/keypress would
-    // destroy it while on_init_inner() still holds the pointer, causing an
-    // intermittent use-after-free crash. Override the filter to a no-op so the
-    // splash can only be removed via the explicit Destroy() once the main frame
-    // is shown.
-    int FilterEvent(wxEvent& /*event*/) override { return wxEventFilter::Event_Skip; }
-
     void scale_font(wxFont& font, float scale)
     {
 #ifdef __WXMSW__
@@ -1050,10 +1039,6 @@ void GUI_App::post_init()
                 BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << ", finished rendering a first frame for test";
             }
         }
-        if (is_editor())
-            mainframe->select_tab(size_t(0));
-        if (app_config->get("default_page") == "1")
-            mainframe->select_tab(size_t(1));
         if (starts_on_prepare())
             mainframe->select_tab(TAB_ID_PREPARE);
 #ifndef __linux__
@@ -6312,8 +6297,8 @@ void GUI_App::check_new_version_sf(bool show_tips, int by_user)
                 std::string remote_version_str;
                 json root = json::parse(body);
                 std::vector<std::string> os_keys;
-                const std::string os   = detect_updater_os();
-                const std::string arch = detect_updater_arch();
+                const std::string os   = platform_os_type();
+                const std::string arch = platform_architecture();
                 if (os == "win") {
                     os_keys.push_back("windows_" + arch);
                 } else if (os == "macos") {

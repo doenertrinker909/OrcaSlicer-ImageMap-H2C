@@ -12373,11 +12373,7 @@ std::string GCode::extrude_multi_path(const ExtrusionMultiPath& multipath, const
     if (m_wipe.enable && FILAMENT_CONFIG(wipe))
         m_wipe.update_path(multipath.paths, true);
 
-    const float minimum_offset_pct = zone.filament_minimum_offsets_pct[idx];
-    if (!std::isfinite(minimum_offset_pct))
-        return 0.f;
-
-    return std::clamp(minimum_offset_pct / 100.f, 0.f, 1.f);
+    return gcode;
 }
 
 std::string GCode::extrude_entity(const ExtrusionEntity&      entity,
@@ -12422,20 +12418,21 @@ std::string GCode::extrude_path(const ExtrusionPath& path, const std::string& de
             m_wipe.path.reverse();
     }
 
-    if (component_idx >= component_colors.size())
-        return false;
-
-    const std::array<float, 3> &c = component_colors[component_idx];
-    const float max_channel = std::max({ c[0], c[1], c[2] });
-    const float luminance = 0.2126f * c[0] + 0.7152f * c[1] + 0.0722f * c[2];
-    return max_channel <= 0.18f && luminance <= 0.12f;
+    return gcode;
 }
 
 // Extrude perimeters: Decide where to put seams (hide or align seams).
 std::string GCode::extrude_perimeters(const Print &print, const std::vector<ObjectByExtruder::Island::Region> &by_region, bool is_first_layer, bool is_infill_first, bool unsupported_loops_only)
 {
-    if (physical_filament_id == 0)
-        return false;
+    std::string gcode;
+    for (const ObjectByExtruder::Island::Region &region : by_region)
+        if (! region.perimeters.empty()) {
+            m_config.apply(print.get_print_region(&region - &by_region.front()).config());
+            // BBS: for first layer, we always print wall firstly to get better bed adhesive force
+            // This behaviour is same with cura
+            const bool should_print = is_first_layer ? !is_infill_first
+                : (m_config.is_infill_first == is_infill_first);
+            if (!should_print) continue;
 
             // Build the printed prefix once in emission order, scoped to this
             // region. Disabled or zero-length wipes need no support geometry.
@@ -12471,6 +12468,7 @@ std::string GCode::extrude_perimeters(const Print &print, const std::vector<Obje
     return gcode;
 }
 
+// Chain the paths hierarchically by a greedy algorithm to minimize a travel distance.
 std::string GCode::extrude_infill(const Print &print, const std::vector<ObjectByExtruder::Island::Region> &by_region, bool ironing)
 {
     std::string 		 gcode;
@@ -12507,13 +12505,13 @@ std::string GCode::extrude_support(const ExtrusionEntityCollection &support_fill
     static constexpr const char* support_ironing_label    = "support ironing";
 
     // Not static: it captures `this` by reference.
-    auto speed_for_path = [this](double length, auto r) -> double {
-        if (!is_support(r) || length > SMALL_PERIMETER_LENGTH(NOZZLE_CONFIG(small_support_perimeter_threshold)))
-            return -1.0;
+    const auto speed_for_path = [&](double length, ExtrusionRole role, double default_speed = -1.0) {
+        if (!is_support(role) || length > SMALL_PERIMETER_LENGTH(NOZZLE_CONFIG(small_support_perimeter_threshold)))
+            return default_speed;
 
         double small_perimeter_speed = -1.0;
 
-        const auto base_speed = (r == erSupportMaterialInterface) 
+        const auto base_speed = (role == erSupportMaterialInterface) 
             ? NOZZLE_CONFIG(support_interface_speed) : NOZZLE_CONFIG(support_speed);
 
         if (NOZZLE_CONFIG(small_support_perimeter_speed).value == 0)
@@ -12521,7 +12519,7 @@ std::string GCode::extrude_support(const ExtrusionEntityCollection &support_fill
         else
             small_perimeter_speed = NOZZLE_CONFIG(small_support_perimeter_speed).get_abs_value(base_speed);
 
-        return small_perimeter_speed > 0 ? small_perimeter_speed : -1.0;
+        return small_perimeter_speed > 0 ? small_perimeter_speed : default_speed;
     };
 
     std::string gcode;
@@ -12696,7 +12694,6 @@ static float overhang_fan_overlap_threshold(int overhang_fan_threshold)
     default: return -1.f;
     }
 }
-
 
 std::string GCode::_extrude(const ExtrusionPath &path, std::string description, double speed)
 {

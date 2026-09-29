@@ -1132,6 +1132,7 @@ Model Model::read_from_file(const std::string&                                  
                 }
             }
         }
+    }
     else if (boost::algorithm::iends_with(input_file, ".fbx")) {
         // These formats can carry material/texture data, so they go through the textured
         // import path: the geometry becomes a normal object and the texture is handed to the
@@ -3682,7 +3683,6 @@ size_t ModelVolume::split(unsigned int max_extruders, bool remap_paint)
 
             // BBS: reset facet annotations
             this->reset_extra_facets();
-            this->exterior_facets.reset();
         }
         else
             this->object->volumes.insert(this->object->volumes.begin() + (++ivolume), new ModelVolume(object, *this, std::move(mesh)));

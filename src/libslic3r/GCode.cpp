@@ -11220,7 +11220,7 @@ std::optional<PreferredSeamPoint> GCode::texture_mapping_seam_hiding_hint(const 
         return std::nullopt;
 
     const size_t num_physical = m_config.filament_colour.values.size();
-    const unsigned int texture_zone_id = unsigned(std::max(0, m_config.wall_filament.value));
+    const unsigned int texture_zone_id = unsigned(std::max(0, m_config.outer_wall_filament_id.value));
     const TextureMappingManager &texture_mgr = m_curr_print->texture_mapping_manager();
     if (num_physical == 0 || texture_zone_id == 0 || !texture_mgr.is_texture_mapping_zone_id(texture_zone_id))
         return std::nullopt;
@@ -11734,7 +11734,7 @@ std::optional<PreferredSeamPoint> GCode::texture_mapping_seam_hiding_hint(const 
                                         double               segment_t,
                                         double               arc_mm,
                                         double               span_mm) -> std::optional<SeamHidingCandidate> {
-        const Points &points = path.polyline.points;
+        const Points3 &points = path.polyline.points;
         if (segment_index == 0 || segment_index >= points.size())
             return std::nullopt;
 
@@ -11750,8 +11750,8 @@ std::optional<PreferredSeamPoint> GCode::texture_mapping_seam_hiding_hint(const 
         const float max_local_edge_tangent_delta_mm = std::max(0.75f, base_outer_width_mm * 1.5f);
         const float max_local_edge_normal_delta_mm =
             std::max(1.25f, base_outer_width_mm * 3.f + 2.f * max_allowed_distance_mm);
-        const Point &a = points[segment_index - 1];
-        const Point &b = points[segment_index];
+        const Point a = points[segment_index - 1].to_point();
+        const Point b = points[segment_index].to_point();
         const double ax = double(a.x());
         const double ay = double(a.y());
         const double bx = double(b.x());
@@ -11883,7 +11883,7 @@ std::optional<PreferredSeamPoint> GCode::texture_mapping_seam_hiding_hint(const 
             float(m_config.texture_mapping_outer_wall_gradient_max_line_width.value));
         const float base_outer_width_mm = vertex_color_match_mode ? texture_mapping_max_outer_width_mm : path_outer_width_mm;
         const float sample_step_mm = std::clamp(0.5f * base_outer_width_mm, 0.15f, 0.5f);
-        const Points &points = path.polyline.points;
+        const Points3 &points = path.polyline.points;
         const size_t path_index = external_path_idx;
         double path_arc_start_mm = total_length_mm;
 
@@ -11912,8 +11912,8 @@ std::optional<PreferredSeamPoint> GCode::texture_mapping_seam_hiding_hint(const 
         };
 
         for (size_t point_idx = 1; point_idx < points.size(); ++point_idx) {
-            const Point &a = points[point_idx - 1];
-            const Point &b = points[point_idx];
+            const Point a = points[point_idx - 1].to_point();
+            const Point b = points[point_idx].to_point();
             const double len_mm = unscale<double>((b - a).cast<double>().norm());
             if (len_mm <= EPSILON)
                 continue;
@@ -12783,20 +12783,20 @@ std::string GCode::_extrude(const ExtrusionPath &path, std::string description, 
         return dest.allFinite() && std::isfinite(dE);
     };
 
-    const bool halftone_path_closed = path.polyline.points.size() > 2 && path.polyline.is_closed();
+    const bool halftone_path_closed = path.polyline.points.size() > 2 && (path.polyline.points.front() == path.polyline.points.back());
     std::vector<double> halftone_source_cumulative_mm(path.polyline.points.size(), 0.0);
     for (size_t point_idx = 1; point_idx < path.polyline.points.size(); ++point_idx)
         halftone_source_cumulative_mm[point_idx] =
             halftone_source_cumulative_mm[point_idx - 1] +
-            Line(path.polyline.points[point_idx - 1], path.polyline.points[point_idx]).length() * SCALING_FACTOR;
+            Line(path.polyline.points[point_idx - 1].to_point(), path.polyline.points[point_idx].to_point()).length() * SCALING_FACTOR;
     const double halftone_total_path_mm = halftone_source_cumulative_mm.empty() ? 0.0 : halftone_source_cumulative_mm.back();
     double halftone_anchor_mm = 0.0;
     if (halftone_path_closed && path.polyline.points.size() > 1 && halftone_total_path_mm > EPSILON) {
         const size_t end_idx = path.polyline.points.size() - 1;
         size_t best_idx = 0;
         for (size_t point_idx = 1; point_idx < end_idx; ++point_idx) {
-            const Point &candidate = path.polyline.points[point_idx];
-            const Point &best = path.polyline.points[best_idx];
+            const Point candidate = path.polyline.points[point_idx].to_point();
+            const Point best = path.polyline.points[best_idx].to_point();
             if (candidate.x() < best.x() || (candidate.x() == best.x() && candidate.y() < best.y()))
                 best_idx = point_idx;
         }
@@ -12842,7 +12842,7 @@ std::string GCode::_extrude(const ExtrusionPath &path, std::string description, 
         m_writer.filament() != nullptr &&
         path.polyline.points.size() >= 2) {
         const size_t num_physical = m_config.filament_colour.values.size();
-        const unsigned int texture_zone_id = unsigned(std::max(0, m_config.wall_filament.value));
+        const unsigned int texture_zone_id = unsigned(std::max(0, m_config.outer_wall_filament_id.value));
         const TextureMappingManager &texture_mgr = m_curr_print->texture_mapping_manager();
         if (num_physical > 0 && texture_zone_id > 0 && texture_mgr.is_texture_mapping_zone_id(texture_zone_id)) {
             const TextureMappingZone *zone = texture_mgr.zone_from_id(texture_zone_id);

@@ -10,6 +10,7 @@
 #include "Exception.hpp"
 #include "LifecycleEvents.hpp"
 #include "ExtrusionEntity.hpp"
+#include "ExtrusionEntityCollection.hpp"
 #include "EdgeGrid.hpp"
 #include "Geometry/ConvexHull.hpp"
 #include "GCode/PrintExtents.hpp"

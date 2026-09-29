@@ -12507,13 +12507,13 @@ std::string GCode::extrude_support(const ExtrusionEntityCollection &support_fill
     static constexpr const char* support_ironing_label    = "support ironing";
 
     // Not static: it captures `this` by reference.
-    const auto speed_for_path = [&](double length, ExtrusionRole role) {
-        if (!is_support(role) || length > SMALL_PERIMETER_LENGTH(NOZZLE_CONFIG(small_support_perimeter_threshold)))
+    auto speed_for_path = [this](double length, auto r) -> double {
+        if (!is_support(r) || length > SMALL_PERIMETER_LENGTH(NOZZLE_CONFIG(small_support_perimeter_threshold)))
             return -1.0;
 
         double small_perimeter_speed = -1.0;
 
-        const auto base_speed = (role == erSupportMaterialInterface) 
+        const auto base_speed = (r == erSupportMaterialInterface) 
             ? NOZZLE_CONFIG(support_interface_speed) : NOZZLE_CONFIG(support_speed);
 
         if (NOZZLE_CONFIG(small_support_perimeter_speed).value == 0)

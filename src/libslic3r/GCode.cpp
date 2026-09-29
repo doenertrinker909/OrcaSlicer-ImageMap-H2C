@@ -13026,7 +13026,8 @@ std::string GCode::_extrude(const ExtrusionPath &path, std::string description, 
                                 };
 
                                 size_t texture_path_segment_idx = 0;
-                                for (const Line &line : path.polyline.lines()) {
+                                for (const Line3 &line3 : path.polyline.lines()) {
+                                    const Line line = line3.to_line();
                                     if (!outer_wall_gradient_dynamic_ctx.enabled)
                                         break;
 
@@ -14397,7 +14398,8 @@ std::string GCode::_extrude(const ExtrusionPath &path, std::string description, 
             (outer_wall_gradient_dynamic_ctx.object_center_mode ||
              outer_wall_gradient_dynamic_ctx.vertex_color_match_mode);
         size_t line_idx = 0;
-        for (const Line &line : path.polyline.lines()) {
+        for (const Line3 &line3 : path.polyline.lines()) {
+            const Line line = line3.to_line();
             const size_t segment_idx = line_idx++;
             const double line_length = line.length() * SCALING_FACTOR;
             if (!std::isfinite(line_length) || line_length < EPSILON)
@@ -16280,7 +16282,7 @@ bool GCode::object_has_top_surface_coloring_shell_infill(const PrintObject &obje
             for (const LayerRegion *layerm : layer->regions()) {
                 if (layerm == nullptr)
                     continue;
-                const int raw_zone_id = layerm->region().config().solid_infill_filament.value;
+                const int raw_zone_id = layerm->region().config().internal_solid_filament_id.value;
                 if (raw_zone_id <= 0)
                     continue;
                 const TextureMappingZone *zone = texture_mgr.zone_from_id(unsigned(raw_zone_id));

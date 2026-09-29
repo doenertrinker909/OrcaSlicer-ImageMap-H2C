@@ -610,7 +610,7 @@ void PrintObject::prepare_contoning_one_wall_shell_infill_masks()
             const TextureMappingZone *zone = contoning_one_wall_shell_infill_zone(*print, region_config);
             if (zone == nullptr)
                 continue;
-            const unsigned int zone_id = unsigned(region_config.solid_infill_filament.value);
+            const unsigned int zone_id = unsigned(region_config.internal_solid_filament_id.value);
             const int stack_layers =
                 std::clamp(zone->top_surface_contoning_stack_layers,
                            TextureMappingZone::MinTopSurfaceContoningStackLayers,

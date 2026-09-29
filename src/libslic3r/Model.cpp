@@ -1131,6 +1131,7 @@ Model Model::read_from_file(const std::string&                                  
                     objFn(in_out);
                 }
             }
+        }
     else if (boost::algorithm::iends_with(input_file, ".fbx")) {
         // These formats can carry material/texture data, so they go through the textured
         // import path: the geometry becomes a normal object and the texture is handed to the

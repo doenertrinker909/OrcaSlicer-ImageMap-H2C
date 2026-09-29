@@ -297,8 +297,8 @@ static void perimeter_texture_accumulate_path_image_weights_for_path(const Extru
 
     const double pitch_scaled = std::max(1.0, double(scale_(context.high_resolution_texture_sampling ? 0.08 : 0.16)));
     for (size_t idx = 1; idx < path.polyline.points.size(); ++idx) {
-        const Point &a = path.polyline.points[idx - 1];
-        const Point &b = path.polyline.points[idx];
+        const Point a = path.polyline.points[idx - 1].to_point();
+        const Point b = path.polyline.points[idx].to_point();
         const double dx = double(b.x()) - double(a.x());
         const double dy = double(b.y()) - double(a.y());
         const double len = std::hypot(dx, dy);
@@ -1958,8 +1958,8 @@ static bool perimeter_texture_split_path_by_recolor_masks(const ExtrusionPath   
     bool saw_override = false;
 
     for (size_t idx = 1; idx < path.polyline.points.size(); ++idx) {
-        const Point &a = path.polyline.points[idx - 1];
-        const Point &b = path.polyline.points[idx];
+        const Point a = path.polyline.points[idx - 1].to_point();
+        const Point b = path.polyline.points[idx].to_point();
         if (a == b)
             continue;
         saw_segment = true;

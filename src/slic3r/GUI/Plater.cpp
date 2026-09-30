@@ -179,7 +179,6 @@
 #include "Widgets/ComboBox.hpp"
 #include "Widgets/Button.hpp"
 #include "Widgets/SpinInput.hpp"
-#include "Widgets/StaticGroup.hpp"
 
 #include "GUI_ObjectTable.hpp"
 #include "libslic3r/Thread.hpp"

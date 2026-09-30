@@ -8842,6 +8842,7 @@ Sidebar::Sidebar(Plater *parent)
     p->m_filament_area_wrapper->Layout();
     scrolled_sizer->Add(p->m_filament_area_wrapper, 0, wxEXPAND | wxTOP | wxBOTTOM, FromDIP(SidebarProps::ContentMarginV())); // ORCA use vertical margin on parent otherwise it shows scrollbar even on 1 filament
     // ---- End filament area ----
+    }
     {
     p->m_panel_texture_mapping_title = new StaticBox(p->scrolled, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxTAB_TRAVERSAL | wxBORDER_NONE);
     p->m_panel_texture_mapping_title->SetBackgroundColor(title_bg);

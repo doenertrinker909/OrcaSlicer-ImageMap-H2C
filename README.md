@@ -45,6 +45,14 @@ CMYK:
 
 - **Use at Your Own Risk**: As with any slicer fork, please review critical prints and generated G-code before production use
 
+## 🤖 **Bambu Lab H2C Compatibility & Upstream Nightly Sync**
+
+> **Notice:** This version integrates **OrcaSlicer-ImageMap** with the latest upstream **OrcaSlicer `main` nightly** (commit [`08f086daf3`](https://github.com/OrcaSlicer/OrcaSlicer/commit/08f086daf3)).
+>
+> - **Bambu Lab H2C Support**: Adds native Bambu Lab H2C printer profiles, dual-nozzle slicing engine capabilities, and machine definitions.
+> - **AI-Assisted Integration**: This merge and engine adaptation was performed with AI assistance.
+> - **NO GUARANTEES / AS-IS**: Provided strictly **as-is with NO GUARANTEES or WARRANTIES**. Please carefully inspect the sliced preview and toolpaths prior to running on your 3D printer.
+
 </div>
 
 # OrcaSlicer-ImageMap Features

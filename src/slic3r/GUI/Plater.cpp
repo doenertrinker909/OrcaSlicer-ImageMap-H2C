@@ -28152,7 +28152,7 @@ void Plater::on_filaments_delete(size_t num_filaments, size_t filament_id, int r
                         zone_extruder = eid;
                 }
             }
-            mv->update_extruder_count_when_delete_filament(num_filaments, filament_id + 1, replace_filament_id + 1, is_mixed);  // this function is 1 base
+            mv->update_extruder_count_when_delete_filament(num_filaments, filament_id + 1, replace_filament_id + 1, texture_mgr, is_mixed);  // this function is 1 base
             if (zone_extruder > 0 && !mv->config.has("extruder") &&
                 texture_mgr->is_texture_mapping_zone_id(unsigned(zone_extruder)))
                 mv->config.set_key_value("extruder", new ConfigOptionInt(zone_extruder));

@@ -19235,7 +19235,7 @@ bool GLGizmoTrueColorPainting::render_filament_colors_picker(float item_width)
                                              ImGuiColorEditFlags_NoLabel |
                                              ImGuiColorEditFlags_NoPicker |
                                              ImGuiColorEditFlags_NoTooltip;
-    const auto render_filament_slider = [this, swatch_size, swatch_flags](size_t idx) {
+    const auto render_filament_slider = [this, swatch_size](size_t idx) {
         const std::string label = GUI::format(_u8L("Filament %1%"), idx + 1);
         const bool slider_changed = ImGui::SliderFloat(label.c_str(), &m_filament_mix[idx], 0.f, 1.f, "%.2f");
         ImGui::SameLine();

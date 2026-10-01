@@ -227,8 +227,8 @@ jobs:
           version="${{ steps.release_version.outputs.version }}"
           mapfile -t assets < <(find release-artifacts -type f \( \
             -name "OrcaSlicer-ImageMap_Mac_*_V$version.dmg" -o \
-            -name "OrcaSlicer-ImageMap_Windows_V${version}_portable.zip" -o \
-            -name "OrcaSlicer-ImageMap_Windows_Installer_V${version}.exe" -o \
+            -name "OrcaSlicer-ImageMap_Windows_V${version}*portable.zip" -o \
+            -name "OrcaSlicer-ImageMap_Windows*Installer*${version}*.exe" -o \
             -name "OrcaSlicer-ImageMap_Linux_AppImage*_V${version}.AppImage" -o \
             -name "OrcaSlicer-ImageMap-Linux-flatpak_V${version}_*.flatpak" \
           \) ! -name '*profile_validator*' | sort)

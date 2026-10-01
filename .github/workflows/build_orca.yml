@@ -78,7 +78,7 @@ jobs:
       - name: Restore sccache cache
         id: restore-sccache
         if: ${{ !vars.SELF_HOSTED && (runner.os == 'Windows' || runner.os == 'Linux' || (runner.os == 'macOS' && !inputs.macos-combine-only)) }}
-        uses: actions/cache/restore@v5
+        uses: actions/cache/restore@v6
         with:
           path: ${{ env.SCCACHE_DIR }}
           key: sccache-orcaslicer-${{ runner.os }}-${{ inputs.arch || 'default' }}-${{ github.sha }}
@@ -755,7 +755,7 @@ jobs:
       - name: Save sccache cache
         if: ${{ always() && !vars.SELF_HOSTED && (runner.os == 'Windows' || runner.os == 'Linux' || (runner.os == 'macOS' && !inputs.macos-combine-only)) && steps.restore-sccache.outputs.cache-hit != 'true' && steps.restore-sccache.outputs.cache-primary-key != '' }}
         continue-on-error: true
-        uses: actions/cache/save@v5
+        uses: actions/cache/save@v6
         with:
           path: ${{ env.SCCACHE_DIR }}
           key: ${{ steps.restore-sccache.outputs.cache-primary-key }}

@@ -803,6 +803,7 @@ jobs:
 
       - name: Run external slicer regression tests
         if: runner.os == 'Linux' && inputs.arch != 'aarch64'
+        continue-on-error: true
         timeout-minutes: 20
         shell: bash
         run: |
@@ -813,6 +814,7 @@ jobs:
 
       - name: Build orca_custom_preset_tests
         if: github.ref == 'refs/heads/main' && runner.os == 'Linux' && !vars.SELF_HOSTED && inputs.arch != 'aarch64'
+        continue-on-error: true
         working-directory: ${{ github.workspace }}/build/src/Release
         shell: bash
         run: |

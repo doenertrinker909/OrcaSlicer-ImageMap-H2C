@@ -4769,7 +4769,7 @@ wxWindow *EditFilamentPresetDialog::create_dialog_buttons()
         if (wxID_YES == res) {
             std::set<std::string> inherit_preset_names;
             std::set<std::string> root_preset_names;
-            for (const std::pair<std::string, std::vector<std::shared_ptr<Preset>>> &printer_and_preset : m_printer_compatible_presets) {
+            for (const auto &printer_and_preset : m_printer_compatible_presets) {
                 for (const std::shared_ptr<Preset> &preset : printer_and_preset.second) {
                     if (!preset) continue;
                     if (preset->inherits().empty()) {

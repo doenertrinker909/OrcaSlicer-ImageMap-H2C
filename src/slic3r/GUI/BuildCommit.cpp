@@ -1,4 +1,10 @@
 #include "BuildCommit.hpp"
+#ifdef GIT_COMMIT_HASH
+#undef GIT_COMMIT_HASH
+#endif
+#ifdef GIT_COMMIT_SUFFIX
+#undef GIT_COMMIT_SUFFIX
+#endif
 #include "git_commit_hash.h"
 
 namespace Slic3r { namespace GUI {

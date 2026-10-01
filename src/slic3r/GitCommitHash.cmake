@@ -39,7 +39,13 @@ message(STATUS "Build commit: ${HASH}${SUFFIX}")
 
 string(CONCAT CONTENT
     "#pragma once\n"
+    "#ifdef GIT_COMMIT_HASH\n"
+    "#undef GIT_COMMIT_HASH\n"
+    "#endif\n"
     "#define GIT_COMMIT_HASH \"${HASH}\"\n"
+    "#ifdef GIT_COMMIT_SUFFIX\n"
+    "#undef GIT_COMMIT_SUFFIX\n"
+    "#endif\n"
     "#define GIT_COMMIT_SUFFIX \"${SUFFIX}\"\n")
 
 set(OLD "")

@@ -2381,8 +2381,8 @@ bool TextureMappingZone::operator==(const TextureMappingZone &rhs) const
                 return false;
         return true;
     };
-    auto anchors_equal = [eps](const TextureMappingZone::LinearGradientAnchor &lhs,
-                               const TextureMappingZone::LinearGradientAnchor &rhs_values) {
+    auto anchors_equal = [](const TextureMappingZone::LinearGradientAnchor &lhs,
+                            const TextureMappingZone::LinearGradientAnchor &rhs_values) {
         if (lhs.valid != rhs_values.valid ||
             lhs.object_id != rhs_values.object_id ||
             lhs.instance_id != rhs_values.instance_id ||
@@ -2400,8 +2400,8 @@ bool TextureMappingZone::operator==(const TextureMappingZone &rhs) const
         }
         return true;
     };
-    auto stops_equal = [eps](const std::vector<TextureMappingZone::LinearGradientStop> &lhs,
-                             const std::vector<TextureMappingZone::LinearGradientStop> &rhs_values) {
+    auto stops_equal = [](const std::vector<TextureMappingZone::LinearGradientStop> &lhs,
+                          const std::vector<TextureMappingZone::LinearGradientStop> &rhs_values) {
         if (lhs.size() != rhs_values.size())
             return false;
         for (size_t i = 0; i < lhs.size(); ++i) {

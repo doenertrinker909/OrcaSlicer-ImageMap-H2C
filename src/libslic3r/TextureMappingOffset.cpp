@@ -669,7 +669,7 @@ std::vector<size_t> raw_component_source_channels(const std::string &metadata_js
         }
     }
 
-    const bool has_mapping = std::any_of(mapping.begin(), mapping.end(), [sentinel](size_t value) { return value != sentinel; });
+    const bool has_mapping = std::any_of(mapping.begin(), mapping.end(), [](size_t value) { return value != sentinel; });
     return has_mapping ? mapping : std::vector<size_t>{};
 }
 
@@ -1840,7 +1840,7 @@ TextureMappingOffsetWeightField build_texture_mapping_offset_weight_field(const 
         const float normal_z = normal.allFinite() ? float(normal.z()) : std::numeric_limits<float>::quiet_NaN();
         if (accumulate_layer_plane_triangle_samples(p0, p1, p2, layer_z_mm, safe_layer_z_falloff_mm, high_resolution_texture_sampling,
                 physical_sample_pitch_mm,
-                [&rgba, normal_z, has_surface_normal_z](const Vec3f &) {
+                [&rgba, normal_z](const Vec3f &) {
                     TextureSampleData sample;
                     sample.rgba = rgba;
                     sample.normal_z = normal_z;
@@ -2082,7 +2082,7 @@ TextureMappingOffsetWeightField build_texture_mapping_offset_weight_field(const 
 
                 if (accumulate_layer_plane_triangle_samples(p0, p1, p2, layer_z_mm, safe_layer_z_falloff_mm, high_resolution_texture_sampling,
                         physical_sample_pitch_mm,
-                        [&uvs, &sample_data_for_uv, normal_z, has_surface_normal_z](const Vec3f &barycentric) {
+                        [&uvs, &sample_data_for_uv, normal_z](const Vec3f &barycentric) {
                             const Vec2f uv = uvs[0] * barycentric.x() + uvs[1] * barycentric.y() + uvs[2] * barycentric.z();
                             TextureSampleData sample_data = sample_data_for_uv(uv);
                             sample_data.normal_z = normal_z;

@@ -1831,7 +1831,7 @@ std::vector<size_t> raw_component_source_channels_for_texture_preview(const std:
         }
     }
 
-    const bool has_mapping = std::any_of(mapping.begin(), mapping.end(), [sentinel](size_t value) { return value != sentinel; });
+    const bool has_mapping = std::any_of(mapping.begin(), mapping.end(), [](size_t value) { return value != sentinel; });
     return has_mapping ? mapping : std::vector<size_t>{};
 }
 

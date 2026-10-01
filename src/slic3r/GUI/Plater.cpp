@@ -5939,7 +5939,6 @@ private:
     wxCheckBox *m_auto_adjust_filament_selection_checkbox {nullptr};
     wxCheckBox *m_preview_limit_resolution_checkbox {nullptr};
     wxCheckBox *m_preview_top_surface_lod_checkbox {nullptr};
-    wxCheckBox *m_reduce_outer_surface_texture_checkbox {nullptr};
     wxCheckBox *m_seam_hiding_checkbox {nullptr};
     wxCheckBox *m_nonlinear_offset_adjustment_checkbox {nullptr};
     wxSpinCtrl *m_filament_overhang_contrast_spin {nullptr};
@@ -8883,7 +8882,7 @@ Sidebar::Sidebar(Plater *parent)
         if (obj_list() != nullptr)
             obj_list()->update_filament_colors();
     };
-    auto add_texture_map_action = [this, persist_texture_mapping]() {
+    auto add_texture_map_action = [persist_texture_mapping]() {
         PresetBundle *bundle = wxGetApp().preset_bundle;
         if (bundle == nullptr)
             return;
@@ -12829,8 +12828,7 @@ void Sidebar::update_texture_mapping_panel(bool sync_manager)
                     linear_gradient_stops_bar->remove_selected();
             });
         int last_mode_selection = mode_choice->GetSelection();
-        auto on_mode_choice = [this,
-                               zone_index,
+        auto on_mode_choice = [zone_index,
                                mgr_ptr,
                                num_physical,
                                physical_colors,
@@ -17013,7 +17011,7 @@ std::vector<size_t> Plater::priv::load_files(const std::vector<fs::path>& input_
 
                 //ObjImportColorFn obj_color_fun=nullptr;
                 bool obj_imported_for_texture_mapping = false;
-                auto obj_color_fun = [this, &path](ObjDialogInOut &in_out) {
+                auto obj_color_fun = [&path](ObjDialogInOut &in_out) {
 
                     if (!is_color_import_choice_file(path.string())) { return; }
                     const std::vector<std::string> extruder_colours = wxGetApp().plater()->get_extruder_colors_from_plater_config(nullptr, false);
@@ -19431,7 +19429,7 @@ void Plater::priv::reload_from_disk()
     for (size_t i = 0; i < input_paths.size(); ++i) {
         const auto& path = input_paths[i].string();
         bool        obj_imported_for_texture_mapping = false;
-        auto        obj_color_fun = [this, &path](ObjDialogInOut &in_out) {
+        auto        obj_color_fun = [&path](ObjDialogInOut &in_out) {
             if (!is_color_import_choice_file(path)) { return; }
             const std::vector<std::string> extruder_colours = wxGetApp().plater()->get_extruder_colors_from_plater_config(nullptr, false);
             ObjColorDialog                 color_dlg(nullptr, in_out, extruder_colours, Sidebar::should_show_SEMM_buttons());

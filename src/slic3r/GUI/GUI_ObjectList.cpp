@@ -6885,7 +6885,7 @@ void GUI::ObjectList::smooth_mesh()
     std::vector<int> obj_idxs, vol_idxs;
     get_selection_indexes(obj_idxs, vol_idxs);
     auto object_idx = obj_idxs.front();
-    auto show_warning_dlg = [this](int cur_face_count,std::string name,bool is_part) {
+    auto show_warning_dlg = [](int cur_face_count,std::string name,bool is_part) {
         int limit_face_count = 1000000;
         if (cur_face_count > limit_face_count) {
             auto name_str = wxString::FromUTF8(name);
